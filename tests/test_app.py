@@ -320,3 +320,71 @@ def test_perfil_cambia_datos_y_contrasena(docente, client):
     logout(client)
     login(client, "profe@t.co", "NuevaClave1*")
     assert client.get("/perfil").status_code == 200
+
+
+def _excel(filas, encabezados=None):
+    from io import BytesIO
+    from openpyxl import Workbook
+    from app.importacion import COLUMNAS
+    wb = Workbook()
+    ws = wb.active
+    ws.append(encabezados or [t for _, t, _, _ in COLUMNAS])
+    for f in filas:
+        ws.append(f)
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return out
+
+
+def test_plantilla_e_importacion(colegio):
+    from openpyxl import load_workbook
+    from io import BytesIO
+    r = colegio.get("/estudiantes/plantilla.xlsx")
+    assert r.status_code == 200
+    assert load_workbook(BytesIO(r.data)).sheetnames == ["Estudiantes", "Instrucciones"]
+
+    # con errores: no se guarda nada
+    malo = _excel([
+        ["TI", "1.012.345.678", "Laura", "Gómez", "15/03/2012", "8", "a", "María", "3001234567", "m@gmail.com"],
+        ["CC", 1012345679, "Pedro", "Ruiz", "15/03/2012", 9, "B", None, None, None],          # menor con CC
+        ["TI", "1012345678", "Repetida", "Doc", None, 9, "B", None, None, None],               # repetido
+        ["TI", "1012345680", "", "Sin nombre", None, "doce", None, None, "12", "no-es-correo"],
+    ])
+    r = colegio.post("/estudiantes/importar", data={"archivo": (malo, "e.xlsx")},
+                     content_type="multipart/form-data")
+    html = r.get_data(as_text=True)
+    assert "cédula" in html and "Repetido en el archivo" in html and "Grado no válido" in html
+    assert "Correo no válido" in html and "Teléfono no válido" in html
+    assert db.session.execute(db.select(Estudiante)).first() is None
+
+    filas_ok = [
+        ["TI", "1.012.345.678", "Laura  Sofía", "Gómez", "15/03/2012", "8°", "a", "María", "3001234567", "M@Gmail.com"],
+        ["Tarjeta de identidad", 1012345679, "Pedro", "Ruiz", None, "noveno", "B", None, None, None],
+    ]
+    bueno = _excel(filas_ok)
+    r = colegio.post("/estudiantes/importar", data={"archivo": (bueno, "e.xlsx")},
+                     content_type="multipart/form-data", follow_redirects=True)
+    assert "Se importaron 2" in r.get_data(as_text=True)
+    laura = db.session.execute(db.select(Estudiante).filter_by(documento="1012345678")).scalar_one()
+    assert (laura.nombres, laura.grado, laura.grupo, laura.email_acudiente) == ("Laura Sofía", 8, "A", "m@gmail.com")
+    assert str(laura.fecha_nacimiento) == "2012-03-15" and laura.institucion_id == inst_id("Colegio A")
+
+    # volver a subir: sin la opción son error; con ella se omiten
+    r = colegio.post("/estudiantes/importar", data={"archivo": (_excel(filas_ok), "e.xlsx")},
+                     content_type="multipart/form-data")
+    assert "Ya está registrado" in r.get_data(as_text=True)
+    r = colegio.post("/estudiantes/importar", data={"archivo": (_excel(filas_ok), "e.xlsx"), "omitir_existentes": "y"},
+                     content_type="multipart/form-data", follow_redirects=True)
+    assert "no tiene estudiantes nuevos" in r.get_data(as_text=True)
+
+
+def test_importar_falta_columna_y_permisos(colegio, client):
+    r = colegio.post("/estudiantes/importar", data={"archivo": (_excel([], ["Nombres", "Apellidos"]), "e.xlsx")},
+                     content_type="multipart/form-data")
+    assert "Falta esta columna" in r.get_data(as_text=True)
+    r = colegio.post("/estudiantes/importar", data={"archivo": (_excel([]), "e.csv")}, content_type="multipart/form-data")
+    assert "Debe ser un archivo de Excel" in r.get_data(as_text=True)
+    logout(colegio)
+    login(client, "docente@t.co")
+    assert client.get("/estudiantes/importar").status_code in (302, 403)

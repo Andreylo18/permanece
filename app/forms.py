@@ -5,6 +5,7 @@ Flask-WTF aporta además protección CSRF en todos los POST.
 from datetime import date
 
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed, FileField, FileRequired
 from wtforms import (BooleanField, DateField, DecimalField, EmailField,
                      IntegerField, PasswordField, SelectField, StringField,
                      SubmitField, TextAreaField)
@@ -102,6 +103,14 @@ class EstudianteForm(FlaskForm):
         error = validar_documento(self.tipo_documento.data, field.data, fecha)
         if error:
             raise ValidationError(error)
+
+
+class ImportarEstudiantesForm(FlaskForm):
+    institucion_id = SelectField("Colegio", coerce=int, choices=[], validate_choice=False)
+    archivo = FileField("Archivo de Excel (.xlsx)", validators=[
+        FileRequired("Elige el archivo."), FileAllowed(["xlsx"], "Debe ser un archivo de Excel .xlsx.")])
+    omitir_existentes = BooleanField("Omitir los estudiantes que ya están registrados (en vez de marcarlos como error)")
+    submit = SubmitField("Importar")
 
 
 class FactoresForm(FlaskForm):

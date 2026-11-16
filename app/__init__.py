@@ -89,6 +89,12 @@ def create_app(nombre_config=None):
         app.register_error_handler(
             codigo, lambda e, c=codigo: (render_template(f"errores/{c}.html"), c))
 
+    @app.errorhandler(413)
+    def archivo_grande(e):
+        from flask import flash, redirect, request
+        flash("El archivo es demasiado grande (máximo 5 MB).", "danger")
+        return redirect(request.url)
+
     from .cli import registrar_comandos
     registrar_comandos(app)
 

@@ -1,13 +1,14 @@
 """Gestión de estudiantes y factores de riesgo (RF-05 a RF-11, RF-15)."""
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import case, or_, true
 
 from ..extensions import db
-from ..forms import EstudianteForm, FactoresForm
+from ..forms import EstudianteForm, FactoresForm, ImportarEstudiantesForm
 from ..academico import periodo_activo, periodos_de, recalcular_estudiante, resumen_academico
 from ..models import GRADOS, MUNICIPIOS_SABANA_CENTRO, Estudiante, Institucion, Periodo
 from ..documentos import normalizar as normalizar_documento
+from ..importacion import COLUMNAS, MAX_FILAS, leer_estudiantes, plantilla
 from ..permisos import (gestion_estudiantes_requerida, limitar_a_institucion, limitar_estudiantes,
                         verificar_estudiante)
 from ..riesgo import calcular_riesgo
@@ -112,6 +113,42 @@ def _colegio_valido(form):
         form.institucion_id.errors = list(form.institucion_id.errors) + ["Selecciona un colegio válido."]
         return False
     return True
+
+
+@bp.route("/plantilla.xlsx")
+@gestion_estudiantes_requerida
+def plantilla_excel():
+    return send_file(plantilla(), as_attachment=True, download_name="plantilla_estudiantes_permanece.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@bp.route("/importar", methods=["GET", "POST"])
+@gestion_estudiantes_requerida
+def importar():
+    form = ImportarEstudiantesForm()
+    _preparar_colegio(form)
+    resultado = None
+    if form.validate_on_submit() and _colegio_valido(form):
+        inst_id = form.institucion_id.data
+        existentes = set(db.session.execute(
+            db.select(Estudiante.documento).filter_by(institucion_id=inst_id)).scalars())
+        resultado = leer_estudiantes(form.archivo.data, existentes, form.omitir_existentes.data)
+        if not resultado.errores and not resultado.filas:
+            flash("No se importó nada: el archivo no tiene estudiantes nuevos." if resultado.omitidos
+                  else "El archivo no tiene estudiantes (llena desde la fila 2).", "warning")
+        elif not resultado.errores:
+            db.session.add_all([Estudiante(institucion_id=inst_id, creado_por_id=current_user.id, **datos)
+                                for datos in resultado.filas])
+            db.session.commit()
+            extra = f" Se omitieron {resultado.omitidos} que ya estaban registrados." if resultado.omitidos else ""
+            flash(f"Se importaron {len(resultado.filas)} estudiante(s).{extra}", "success")
+            return redirect(url_for("estudiantes.listado", institucion=inst_id if current_user.es_admin else None))
+        else:
+            flash("No se guardó ningún estudiante. Corrige las filas indicadas y vuelve a subir el archivo.", "danger")
+    elif form.is_submitted():
+        flash("Revisa los campos marcados.", "danger")
+    return render_template("estudiantes/importar.html", form=form, resultado=resultado, columnas=COLUMNAS,
+                           max_filas=MAX_FILAS)
 
 
 @bp.route("/nuevo", methods=["GET", "POST"])

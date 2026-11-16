@@ -7,6 +7,7 @@ WTForms==3.3.2
 email-validator>=2.1
 psycopg[binary]>=3.2      # PostgreSQL (Neon)
 requests>=2.32            # API de Brevo para correos
+openpyxl>=3.1             # importar estudiantes desde Excel
 tzdata                    # zona horaria America/Bogota en Windows
 gunicorn>=22.0 ; sys_platform != "win32"
 pytest>=8.0

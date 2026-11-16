@@ -58,6 +58,7 @@ class Config:
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 8  # 8 horas
 
     ITEMS_POR_PAGINA = 15
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024   # archivos subidos (Excel de estudiantes): máx. 5 MB
     ZONA_HORARIA = "America/Bogota"
 
     # Correo (Brevo, por API HTTPS: Render gratis bloquea los puertos SMTP)

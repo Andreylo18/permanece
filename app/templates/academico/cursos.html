@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}Cursos y docentes{% endblock %}
+{% block contenido %}
+<h1 class="h3 mb-1">Cursos y docentes</h1>
+<p class="text-muted small">Cada curso es una materia de un grado y grupo, con el docente que la dicta. Los estudiantes del grado y grupo quedan automáticamente en el curso.</p>
+<div class="row g-4">
+  <div class="col-12 col-lg-8">
+    {% if asignaciones %}
+    <div class="table-responsive">
+      <table class="table align-middle bg-white">
+        <thead class="table-light"><tr><th>Curso</th><th>Materia</th><th>Docente</th><th></th></tr></thead>
+        <tbody>
+        {% for a in asignaciones %}
+          <tr>
+            <td class="fw-semibold text-nowrap">{{ a.curso_nombre }}</td>
+            <td>{{ a.materia.nombre }}{% if not a.materia.activa %} <span class="badge text-bg-secondary">Inactiva</span>{% endif %}</td>
+            <td>
+              <form method="post" action="{{ url_for('academico.cambiar_docente', asignacion_id=a.id) }}" class="d-flex gap-1 m-0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="docente_id" class="form-select form-select-sm" aria-label="Docente de {{ a.nombre }}">
+                  {% for id, nombre in docentes %}<option value="{{ id }}" {{ 'selected' if id == a.docente_id }}>{{ nombre }}</option>{% endfor %}
+                  {% if a.docente_id not in docentes|map('first')|list %}<option value="{{ a.docente_id }}" selected>{{ a.docente.nombre }} (inactivo)</option>{% endif %}
+                </select>
+                <button class="btn btn-sm btn-outline-primary" title="Cambiar docente"><i class="bi bi-check2"></i></button>
+              </form>
+            </td>
+            <td class="text-end text-nowrap">
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('academico.notas', asignacion_id=a.id) }}">Notas</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('academico.asistencia', asignacion_id=a.id) }}">Asistencia</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-5 border rounded bg-white"><i class="bi bi-diagram-3 fs-1 d-block mb-2"></i>Aún no hay cursos asignados.</div>
+    {% endif %}
+  </div>
+  <div class="col-12 col-lg-4">
+    <form method="post" novalidate class="card card-body">
+      {{ form.hidden_tag() }}
+      <h2 class="h6 text-uppercase text-muted">Asignar curso</h2>
+      {% if not form.materia_id.choices or not form.docente_id.choices %}
+        <div class="alert alert-warning small mb-0">
+          {% if not form.materia_id.choices %}Primero crea materias en <a href="{{ url_for('academico.materias') }}">Materias</a>.<br>{% endif %}
+          {% if not form.docente_id.choices %}Primero crea docentes en <a href="{{ url_for('usuarios.listado') }}">Docentes</a>.{% endif %}
+        </div>
+      {% else %}
+      <div class="row g-3">
+        {{ campo(form.materia_id, "col-12") }}
+        {{ campo(form.docente_id, "col-12") }}
+        {{ campo(form.grado, "col-6") }}
+        {{ campo(form.grupo, "col-6") }}
+        <div class="col-12 d-grid"><button class="btn btn-primary">Asignar</button></div>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

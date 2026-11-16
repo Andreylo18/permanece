@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% set titulo_pagina = 'Usuarios' if current_user.es_admin else 'Docentes' %}
+{% block titulo %}{{ titulo_pagina }}{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ titulo_pagina }}</h1>
+    {% if current_user.es_colegio %}<p class="small text-muted mb-0">Docentes y orientadores de {{ current_user.institucion.nombre }}.</p>{% endif %}
+  </div>
+  <a href="{{ url_for('usuarios.nuevo', **request.args) }}" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>{{ 'Nuevo usuario' if current_user.es_admin else 'Nuevo docente' }}</a>
+</div>
+
+{% if current_user.es_admin %}
+<form class="d-flex flex-wrap gap-2 mb-3" method="get">
+  <select class="form-select form-select-sm w-auto" name="institucion" aria-label="Filtrar por colegio">
+    <option value="">Todos los colegios</option>
+    {% for i in instituciones %}<option value="{{ i.id }}" {{ 'selected' if request.args.institucion == i.id|string }}>{{ i.nombre }}</option>{% endfor %}
+  </select>
+  <button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+  {% if request.args.institucion %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('usuarios.listado') }}">Limpiar</a>{% endif %}
+</form>
+{% endif %}
+
+{% if usuarios %}
+<div class="table-responsive">
+  <table class="table align-middle bg-white">
+    <thead class="table-light"><tr><th>Nombre</th><th>Correo</th><th>Rol</th>{% if current_user.es_admin %}<th>Colegio</th>{% endif %}<th>Estado</th><th></th></tr></thead>
+    <tbody>
+    {% for u in usuarios %}
+      <tr>
+        <td class="fw-semibold">{{ u.nombre }}{% if u.id == current_user.id %} <span class="badge text-bg-light border">Tú</span>{% endif %}</td>
+        <td class="text-break">{{ u.email }}</td>
+        <td>{{ u.rol_nombre }}</td>
+        {% if current_user.es_admin %}<td class="small">{{ u.institucion.nombre if u.institucion else '—' }}</td>{% endif %}
+        <td>{% if u.activo %}<span class="badge text-bg-success">Activo</span>{% else %}<span class="badge text-bg-secondary">Inactivo</span>{% endif %}</td>
+        <td class="text-end">
+          {% if current_user.es_admin or u.rol == 'docente' %}
+          <div class="d-inline-flex gap-1">
+            <form method="post" action="{{ url_for('usuarios.reenviar_invitacion', usuario_id=u.id) }}" class="m-0">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-secondary" title="Reenviar correo para definir contraseña"><i class="bi bi-envelope"></i></button>
+            </form>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('usuarios.editar', usuario_id=u.id) }}">Editar</a>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center text-muted py-5 border rounded bg-white">
+  <i class="bi bi-people fs-1 d-block mb-2"></i>No hay usuarios para mostrar.
+</div>
+{% endif %}
+{% endblock %}

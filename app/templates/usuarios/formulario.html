@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% set etiqueta = 'usuario' if current_user.es_admin else 'docente' %}
+{% block titulo %}{{ 'Editar' if usuario else 'Nuevo' }} {{ etiqueta }}{% endblock %}
+{% block contenido %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('usuarios.listado') }}">{{ 'Usuarios' if current_user.es_admin else 'Docentes' }}</a></li>
+  <li class="breadcrumb-item active">{{ usuario.nombre if usuario else 'Nuevo' }}</li>
+</ol></nav>
+<h1 class="h3 mb-3">{{ 'Editar' if usuario else 'Nuevo' }} {{ etiqueta }}</h1>
+<form method="post" novalidate class="card card-body" style="max-width: 760px">
+  {{ form.hidden_tag() }}
+  <div class="row g-3">
+    {{ campo(form.nombre, "col-12 col-md-6") }}
+    {{ campo(form.email, "col-12 col-md-6", "Será su usuario para iniciar sesión.") }}
+    {% if current_user.es_admin %}
+      {{ campo(form.rol, "col-12 col-md-6", "Colegio: registra estudiantes y crea docentes. Docente: consulta su colegio y hace seguimiento.") }}
+      {{ campo(form.institucion_id, "col-12 col-md-6", "Obligatorio para colegio y docente; vacío para administrador general.") }}
+    {% else %}
+      <div class="col-12"><span class="small text-muted">Rol: <strong>Docente / orientador</strong> · {{ current_user.institucion.nombre }}</span></div>
+    {% endif %}
+    {{ campo(form.activo, "col-12") }}
+    {{ campo(form.password, "col-12 col-md-6", "Déjala vacía para no cambiarla." if usuario else "Opcional: si la dejas vacía, la persona la define desde el correo de invitación.") }}
+    {{ campo(form.confirmar, "col-12 col-md-6") }}
+  </div>
+  <div class="d-flex gap-2 justify-content-end mt-3">
+    <a href="{{ url_for('usuarios.listado') }}" class="btn btn-outline-secondary">Cancelar</a>
+    <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Guardar</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "correos/_base.html" %}
+{% block cuerpo %}
+<p>Hola, <strong>{{ usuario.nombre }}</strong>:</p>
+<p>Recibimos una solicitud para restablecer tu contraseña de PERMANECE. Usa este enlace (válido por {{ horas }} horas):</p>
+{% set texto_boton = "Restablecer contraseña" %}{% include "correos/_boton.html" %}
+<p>Si no lo solicitaste, ignora este mensaje: tu contraseña no cambiará.</p>
+{% endblock %}

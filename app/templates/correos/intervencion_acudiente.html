@@ -1,0 +1,8 @@
+{% extends "correos/_base.html" %}
+{% block cuerpo %}
+<p>Estimado(a) {{ est.acudiente or "acudiente" }}:</p>
+<p>{{ est.institucion.nombre }} le comparte el seguimiento realizado con <strong>{{ est.nombres }}</strong> el {{ inter.fecha.strftime('%d/%m/%Y') }} ({{ inter.tipo_nombre|lower }}):</p>
+<blockquote style="margin:12px 0;padding:12px 16px;background:#f5f7fa;border-left:4px solid #1f4e79">{{ inter.descripcion }}</blockquote>
+{% if inter.compromisos %}<p><strong>Compromisos acordados:</strong> {{ inter.compromisos }}</p>{% endif %}
+<p>Responsable: {{ inter.responsable.nombre }}. Ante cualquier inquietud, comuníquese con el colegio.</p>
+{% endblock %}

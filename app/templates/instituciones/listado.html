@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Colegios{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Colegios</h1>
+    <p class="small text-muted mb-0">Cada colegio recibe credenciales propias, registra sus estudiantes y crea a sus docentes.</p>
+  </div>
+  <a href="{{ url_for('instituciones.nueva') }}" class="btn btn-primary"><i class="bi bi-building-add me-1"></i>Nuevo colegio</a>
+</div>
+
+{% if instituciones %}
+<div class="row g-3">
+  {% for i in instituciones %}
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card h-100 {{ 'opacity-75' if not i.activa }}">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between gap-2">
+          <h2 class="h6 fw-bold mb-1">{{ i.nombre }}</h2>
+          {% if i.activa %}<span class="badge text-bg-success align-self-start">Activo</span>
+          {% else %}<span class="badge text-bg-secondary align-self-start">Inactivo</span>{% endif %}
+        </div>
+        <div class="small text-muted mb-3">{{ i.municipio }} · {{ i.sector_nombre }}{% if i.codigo_dane %} · DANE {{ i.codigo_dane }}{% endif %}</div>
+        <div class="row text-center g-2 mb-3">
+          <div class="col-4"><div class="fs-5 fw-bold">{{ estudiantes.get(i.id, 0) }}</div><div class="small text-muted">Estudiantes</div></div>
+          <div class="col-4"><div class="fs-5 fw-bold text-danger">{{ altos.get(i.id, 0) }}</div><div class="small text-muted">Riesgo alto</div></div>
+          <div class="col-4"><div class="fs-5 fw-bold">{{ docentes.get(i.id, 0) }}</div><div class="small text-muted">Docentes</div></div>
+        </div>
+        <div class="mt-auto d-flex flex-wrap gap-2">
+          <a class="btn btn-sm btn-primary" href="{{ url_for('dashboard.inicio', institucion=i.id) }}"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('estudiantes.listado', institucion=i.id) }}">Estudiantes</a>
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('usuarios.listado', institucion=i.id) }}">Usuarios</a>
+          <a class="btn btn-sm btn-outline-secondary ms-auto" href="{{ url_for('instituciones.editar', institucion_id=i.id) }}" aria-label="Editar colegio"><i class="bi bi-pencil"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-5 border rounded bg-white">
+  <i class="bi bi-building fs-1 d-block mb-2"></i>Aún no hay colegios registrados.
+  <div class="mt-2"><a href="{{ url_for('instituciones.nueva') }}" class="btn btn-primary btn-sm">Crear el primero</a></div>
+</div>
+{% endif %}
+{% endblock %}

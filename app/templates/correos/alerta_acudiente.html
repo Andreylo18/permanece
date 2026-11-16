@@ -1,0 +1,7 @@
+{% extends "correos/_base.html" %}
+{% block cuerpo %}
+<p>Estimado(a) {{ est.acudiente or "acudiente" }}:</p>
+<p>Desde <strong>{{ est.institucion.nombre }}</strong> queremos acompañar el proceso académico de <strong>{{ est.nombres }}</strong>. Hemos identificado que en este periodo requiere apoyo adicional.</p>
+<p>Le invitamos a comunicarse con la coordinación del colegio para conversar y acordar, juntos, cómo acompañarle.</p>
+<p>Gracias por su compromiso con la educación de {{ est.nombres }}.</p>
+{% endblock %}

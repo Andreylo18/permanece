@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}Asistencia · {{ a.nombre }}{% endblock %}
+{% block contenido %}
+{% set pestana = 'asistencia' %}{% include "academico/_encabezado_curso.html" %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <p class="small text-muted mb-0">{{ sesiones|length }} clase(s) registradas en {{ periodo.nombre }}.</p>
+  <a href="{{ url_for('academico.tomar_asistencia', asignacion_id=a.id) }}" class="btn btn-primary"><i class="bi bi-person-check me-1"></i>Tomar asistencia</a>
+</div>
+
+{% if sesiones %}
+<div class="table-responsive">
+  <table class="table align-middle bg-white">
+    <thead class="table-light"><tr><th>Fecha</th><th>Tema</th><th class="text-center">Presentes</th><th class="text-center">Tarde</th><th class="text-center">Ausentes</th><th class="text-center">Con excusa</th><th></th></tr></thead>
+    <tbody>
+    {% for s in sesiones %}{% set c = conteos.get(s.id, {}) %}
+      <tr>
+        <td class="text-nowrap fw-semibold">{{ s.fecha.strftime('%d/%m/%Y') }}</td>
+        <td class="small">{{ s.tema or '—' }}</td>
+        <td class="text-center">{{ c.get('presente', 0) }}</td>
+        <td class="text-center">{{ c.get('tarde', 0) }}</td>
+        <td class="text-center {{ 'text-danger fw-semibold' if c.get('ausente', 0) }}">{{ c.get('ausente', 0) }}</td>
+        <td class="text-center">{{ c.get('excusa', 0) }}</td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('academico.tomar_asistencia', asignacion_id=a.id, sesion=s.id) }}">Editar</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center text-muted py-5 border rounded bg-white"><i class="bi bi-calendar-check fs-1 d-block mb-2"></i>Aún no se ha tomado asistencia en este periodo.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo, nivel_badge %}
+{% block titulo %}Registrar intervención{% endblock %}
+{% block contenido %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('estudiantes.listado') }}">Estudiantes</a></li>
+  <li class="breadcrumb-item"><a href="{{ url_for('estudiantes.detalle', estudiante_id=est.id) }}">{{ est.nombre_completo }}</a></li>
+  <li class="breadcrumb-item active">Nueva intervención</li>
+</ol></nav>
+<h1 class="h3 mb-1">Registrar intervención</h1>
+<p class="text-muted">{{ est.nombre_completo }} · {{ est.grado_nombre }} · {{ nivel_badge(est.nivel_actual, est.puntaje_actual) }}</p>
+
+<form method="post" novalidate class="card card-body">
+  {{ form.hidden_tag() }}
+  <div class="row g-3">
+    {{ campo(form.fecha, "col-6 col-md-3") }}
+    {{ campo(form.tipo, "col-6 col-md-5") }}
+    {{ campo(form.estado, "col-12 col-md-4") }}
+    {{ campo(form.descripcion, "col-12", "Qué se hizo, con quién y qué se observó.") }}
+    {{ campo(form.compromisos, "col-12") }}
+    {% if est.email_acudiente %}
+      {{ campo(form.notificar_acudiente, "col-12", "Se enviará a " ~ est.email_acudiente ~ " la descripción y los compromisos. No incluye puntajes de riesgo.") }}
+    {% else %}
+      <div class="col-12 small text-muted"><i class="bi bi-envelope-slash me-1"></i>El acudiente no tiene correo registrado; no se le puede enviar esta intervención.</div>
+    {% endif %}
+  </div>
+  <p class="small text-muted mt-3"><i class="bi bi-person-check me-1"></i>Responsable: <strong>{{ current_user.nombre }}</strong>. La fecha y el autor quedan registrados.</p>
+  <div class="d-flex gap-2 justify-content-end">
+    <a href="{{ url_for('estudiantes.detalle', estudiante_id=est.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+    <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Registrar intervención</button>
+  </div>
+</form>
+{% endblock %}

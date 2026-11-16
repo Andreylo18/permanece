@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}Tomar asistencia · {{ a.nombre }}{% endblock %}
+{% block contenido %}
+{% set pestana = 'asistencia' %}{% include "academico/_encabezado_curso.html" %}
+
+<form method="post" novalidate class="card card-body">
+  {{ form.hidden_tag() }}
+  <div class="row g-3 mb-3">
+    {{ campo(form.fecha, "col-6 col-md-3") }}
+    {{ campo(form.tema, "col-6 col-md-9") }}
+  </div>
+
+  {% if estudiantes %}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+    <h2 class="h6 text-uppercase text-muted mb-0">{{ estudiantes|length }} estudiantes</h2>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="todos-presentes"><i class="bi bi-check2-all me-1"></i>Marcar todos presentes</button>
+  </div>
+  <div class="list-group mb-3">
+    {% for est in estudiantes %}
+    <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2 fila-asistencia">
+      <span class="fw-semibold">{{ est.apellidos }}, {{ est.nombres }}</span>
+      <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="Asistencia de {{ est.nombres }} {{ est.apellidos }}">
+        {% for valor, etiqueta in estados %}
+          {% set color = {'presente':'success','tarde':'warning','ausente':'danger','excusa':'secondary'}[valor] %}
+          <input type="radio" class="btn-check" name="e_{{ est.id }}" id="e_{{ est.id }}_{{ valor }}" value="{{ valor }}"
+                 autocomplete="off" {{ 'checked' if seleccion[est.id] == valor }}>
+          <label class="btn btn-outline-{{ color }}" for="e_{{ est.id }}_{{ valor }}">{{ etiqueta }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="small text-muted">La ausencia con excusa queda registrada, pero no baja el porcentaje de asistencia.</p>
+  <div class="d-flex gap-2 justify-content-end">
+    <a href="{{ url_for('academico.asistencia', asignacion_id=a.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+    <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Guardar asistencia</button>
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-4">No hay estudiantes activos en {{ a.curso_nombre }}.</div>
+  {% endif %}
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.getElementById("todos-presentes")?.addEventListener("click", () => {
+    document.querySelectorAll('input.btn-check[value="presente"]').forEach(r => { r.checked = true; });
+  });
+</script>
+{% endblock %}

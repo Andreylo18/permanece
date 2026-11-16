@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}{{ 'Editar' if estudiante else 'Registrar' }} estudiante{% endblock %}
+{% block contenido %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('estudiantes.listado') }}">Estudiantes</a></li>
+  {% if estudiante %}<li class="breadcrumb-item"><a href="{{ url_for('estudiantes.detalle', estudiante_id=estudiante.id) }}">{{ estudiante.nombre_completo }}</a></li>{% endif %}
+  <li class="breadcrumb-item active">{{ 'Editar' if estudiante else 'Nuevo' }}</li>
+</ol></nav>
+
+<h1 class="h3 mb-3">{{ 'Editar estudiante' if estudiante else 'Registrar estudiante' }}</h1>
+
+<form method="post" novalidate class="card card-body">
+  {{ form.hidden_tag() }}
+  <h2 class="h6 text-uppercase text-muted">Identificación</h2>
+  <div class="row g-3 mb-4">
+    {{ campo(form.documento, "col-12 col-md-4") }}
+    {{ campo(form.nombres, "col-12 col-md-4") }}
+    {{ campo(form.apellidos, "col-12 col-md-4") }}
+    {{ campo(form.fecha_nacimiento, "col-12 col-md-4") }}
+  </div>
+  <h2 class="h6 text-uppercase text-muted">Información escolar</h2>
+  <div class="row g-3 mb-4">
+    {% if current_user.es_admin %}
+      {{ campo(form.institucion_id, "col-12") }}
+    {% else %}
+      <div class="col-12"><span class="form-label fw-semibold d-block">Colegio</span>
+        <div class="form-control-plaintext py-0">{{ current_user.institucion.nombre }} · {{ current_user.institucion.municipio }}</div></div>
+    {% endif %}
+    {{ campo(form.grado, "col-6 col-md-3") }}
+    {{ campo(form.grupo, "col-6 col-md-3") }}
+  </div>
+  <h2 class="h6 text-uppercase text-muted">Acudiente</h2>
+  <div class="row g-3 mb-4">
+    {{ campo(form.acudiente, "col-12 col-md-6") }}
+    {{ campo(form.telefono_acudiente, "col-12 col-md-6") }}
+    {{ campo(form.email_acudiente, "col-12") }}
+  </div>
+  <p class="small text-muted"><i class="bi bi-shield-lock me-1"></i>Registra solo la información necesaria para el seguimiento. En pruebas usa datos ficticios.</p>
+  <div class="d-flex gap-2 justify-content-end">
+    <a href="{{ url_for('estudiantes.detalle', estudiante_id=estudiante.id) if estudiante else url_for('estudiantes.listado') }}" class="btn btn-outline-secondary">Cancelar</a>
+    <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Guardar</button>
+  </div>
+</form>
+{% endblock %}

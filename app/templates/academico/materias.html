@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}Materias{% endblock %}
+{% block contenido %}
+<h1 class="h3 mb-1">Materias</h1>
+<p class="text-muted small">Materias que dicta el colegio. Luego asígnalas a cada curso con su docente en <a href="{{ url_for('academico.cursos') }}">Cursos y docentes</a>.</p>
+<div class="row g-4">
+  <div class="col-12 col-lg-7">
+    {% if materias %}
+    <div class="list-group">
+      {% for m in materias %}
+      <div class="list-group-item d-flex justify-content-between align-items-center gap-2 {{ 'text-muted' if not m.activa }}">
+        <div><strong>{{ m.nombre }}</strong>
+          {% if not m.activa %}<span class="badge text-bg-secondary ms-1">Inactiva</span>{% endif %}
+          <div class="small text-muted">{{ cursos.get(m.id, 0) }} curso(s)</div></div>
+        <form method="post" action="{{ url_for('academico.estado_materia', materia_id=m.id) }}" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm {{ 'btn-outline-secondary' if m.activa else 'btn-outline-success' }}">{{ 'Desactivar' if m.activa else 'Activar' }}</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-5 border rounded bg-white"><i class="bi bi-book fs-1 d-block mb-2"></i>Aún no hay materias.</div>
+    {% endif %}
+  </div>
+  <div class="col-12 col-lg-5">
+    <form method="post" novalidate class="card card-body">
+      {{ form.hidden_tag() }}
+      <h2 class="h6 text-uppercase text-muted">Agregar materia</h2>
+      <div class="row g-3">
+        {{ campo(form.nombre, "col-12", "Ej.: Matemáticas, Lengua Castellana, Inglés") }}
+        <div class="col-12 d-grid"><button class="btn btn-primary">Agregar</button></div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

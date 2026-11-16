@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}Periodos{% endblock %}
+{% block contenido %}
+<h1 class="h3 mb-1">Periodos académicos</h1>
+<p class="text-muted small">Las notas y la asistencia se registran en el <strong>periodo activo</strong>. Solo puede haber uno activo a la vez.</p>
+<div class="row g-4">
+  <div class="col-12 col-lg-7">
+    {% if periodos %}
+    <div class="list-group">
+      {% for p in periodos %}
+      <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+          <strong>{{ p.nombre }}</strong>
+          {% if p.activo %}<span class="badge text-bg-success ms-1">Activo</span>{% endif %}
+          <div class="small text-muted">{{ p.fecha_inicio.strftime('%d/%m/%Y') }} – {{ p.fecha_fin.strftime('%d/%m/%Y') }}</div>
+        </div>
+        {% if not p.activo %}
+        <form method="post" action="{{ url_for('academico.activar_periodo', periodo_id=p.id) }}" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-primary">Activar</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-5 border rounded bg-white"><i class="bi bi-calendar3 fs-1 d-block mb-2"></i>Crea el primer periodo para que los docentes puedan registrar notas y asistencia.</div>
+    {% endif %}
+  </div>
+  <div class="col-12 col-lg-5">
+    <form method="post" novalidate class="card card-body">
+      {{ form.hidden_tag() }}
+      <h2 class="h6 text-uppercase text-muted">Nuevo periodo</h2>
+      <div class="row g-3">
+        {{ campo(form.nombre, "col-12", "Formato AAAA-P#, ej. 2026-P4") }}
+        {{ campo(form.fecha_inicio, "col-6") }}
+        {{ campo(form.fecha_fin, "col-6") }}
+        {{ campo(form.activo) }}
+        <div class="col-12 d-grid"><button class="btn btn-primary">Crear periodo</button></div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

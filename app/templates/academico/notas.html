@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}Notas · {{ a.nombre }}{% endblock %}
+{% block contenido %}
+{% set pestana = 'notas' %}{% include "academico/_encabezado_curso.html" %}
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-lg-8">
+    <div class="card card-body py-2">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <strong class="small text-uppercase text-muted me-1">Actividades</strong>
+        {% for act in actividades %}
+          <span class="badge rounded-pill text-bg-light border d-inline-flex align-items-center gap-1 py-2">
+            {{ act.nombre }} · {{ act.porcentaje }} %
+            <form method="post" action="{{ url_for('academico.eliminar_actividad', actividad_id=act.id) }}" class="m-0"
+                  onsubmit="return confirm('¿Eliminar «{{ act.nombre }}» y todas sus notas?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-link btn-sm p-0 text-danger" aria-label="Eliminar {{ act.nombre }}"><i class="bi bi-x-circle"></i></button>
+            </form>
+          </span>
+        {% else %}<span class="small text-muted">Aún no hay actividades. Agrega la primera →</span>{% endfor %}
+        <span class="ms-auto small {{ 'text-success' if total_pct == 100 else 'text-warning-emphasis' }}">
+          <i class="bi {{ 'bi-check-circle' if total_pct == 100 else 'bi-exclamation-circle' }} me-1"></i>Total: {{ total_pct }} %{% if total_pct < 100 %} (faltan {{ 100 - total_pct }} %){% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <form method="post" action="{{ url_for('academico.agregar_actividad', asignacion_id=a.id) }}" class="card card-body py-2" novalidate>
+      {{ form_act.hidden_tag() }}
+      <div class="d-flex gap-2 align-items-end">
+        <div class="flex-grow-1"><label class="form-label small mb-1" for="nombre">Actividad</label>
+          {{ form_act.nombre(class="form-control form-control-sm", placeholder="Ej.: Quiz 1") }}</div>
+        <div style="width:5.5rem"><label class="form-label small mb-1" for="porcentaje">%</label>
+          {{ form_act.porcentaje(class="form-control form-control-sm", min=1, max=100, placeholder="20") }}</div>
+        <button class="btn btn-sm btn-primary" aria-label="Agregar actividad"><i class="bi bi-plus-lg"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not estudiantes %}
+  <div class="text-center text-muted py-5 border rounded bg-white">No hay estudiantes activos en {{ a.curso_nombre }}.</div>
+{% elif not actividades %}
+  <div class="text-center text-muted py-5 border rounded bg-white"><i class="bi bi-list-check fs-1 d-block mb-2"></i>Crea las actividades del periodo (con su porcentaje) para empezar a calificar.</div>
+{% else %}
+<form method="post" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="table-responsive planilla">
+    <table class="table table-sm align-middle bg-white mb-2">
+      <thead class="table-light">
+        <tr>
+          <th class="sticky-col">Estudiante</th>
+          {% for act in actividades %}<th class="text-center">{{ act.nombre }}<div class="small text-muted fw-normal">{{ act.porcentaje }} %</div></th>{% endfor %}
+          <th class="text-center">Nota<div class="small text-muted fw-normal">ponderada</div></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for est in estudiantes %}
+        {% set defi = definitivas[est.id] %}
+        <tr>
+          <td class="sticky-col"><a href="{{ url_for('estudiantes.detalle', estudiante_id=est.id) }}" class="text-decoration-none">{{ est.apellidos }}, {{ est.nombres }}</a></td>
+          {% for act in actividades %}
+            {% set clave = (act.id, est.id) %}
+            <td class="text-center">
+              <input name="n_{{ act.id }}_{{ est.id }}" value="{{ valores.get(clave, '') }}" inputmode="decimal"
+                     class="form-control form-control-sm text-center nota-input {{ 'is-invalid' if clave in errores }}"
+                     aria-label="{{ act.nombre }} de {{ est.nombres }} {{ est.apellidos }}" placeholder="—"
+                     {% if clave in errores %}title="{{ errores[clave] }}"{% endif %}>
+            </td>
+          {% endfor %}
+          <td class="text-center fw-bold {{ 'text-danger' if defi is not none and defi < 3 else '' }}">
+            {% if defi is not none %}{{ '%.1f'|format(defi) | replace('.', ',') }}{% if defi < 3 %} <i class="bi bi-exclamation-circle" title="Reprobando"></i>{% endif %}{% else %}—{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <p class="small text-muted mb-0">Notas de 0,0 a 5,0 (coma o punto). Deja vacío lo que aún no has calificado. Se aprueba con 3,0.</p>
+    <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Guardar notas</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "_macros.html" import nivel_badge, incompleto_badge, paginacion %}
+{% block titulo %}Estudiantes{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Estudiantes</h1>
+  {% if current_user.puede_gestionar_estudiantes %}
+  <a href="{{ url_for('estudiantes.nuevo') }}" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Registrar estudiante</a>
+  {% endif %}
+</div>
+
+<form class="card card-body mb-3 filtros" method="get">
+  <div class="row g-2 align-items-end">
+    {% if current_user.es_admin %}
+    <div class="col-12">
+      <label class="form-label small mb-1" for="institucion">Colegio</label>
+      <select class="form-select" id="institucion" name="institucion">
+        <option value="">Todos los colegios</option>
+        {% for i in instituciones %}<option value="{{ i.id }}" {{ 'selected' if request.args.institucion == i.id|string }}>{{ i.nombre }} · {{ i.municipio }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="col-12 col-md-4">
+      <label class="form-label small mb-1" for="q">Buscar</label>
+      <input class="form-control" id="q" name="q" value="{{ request.args.q or '' }}" placeholder="Nombre o documento">
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small mb-1" for="grado">Grado</label>
+      <select class="form-select" id="grado" name="grado">
+        <option value="">Todos</option>
+        {% for g in grados %}<option value="{{ g }}" {{ 'selected' if request.args.grado == g|string }}>{{ nombre_grado(g) }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small mb-1" for="nivel">Riesgo</label>
+      <select class="form-select" id="nivel" name="nivel">
+        <option value="">Todos</option>
+        {% for v, t in [('alto','Alto'),('medio','Medio'),('bajo','Bajo'),('sin','Sin clasificar')] %}
+          <option value="{{ v }}" {{ 'selected' if request.args.nivel == v }}>{{ t }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small mb-1" for="municipio">Municipio</label>
+      <select class="form-select" id="municipio" name="municipio">
+        <option value="">Todos</option>
+        {% for m in municipios %}<option {{ 'selected' if request.args.municipio == m }}>{{ m }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label small mb-1" for="orden">Ordenar por</label>
+      <select class="form-select" id="orden" name="orden">
+        {% for v, t in [('riesgo','Mayor riesgo'),('nombre','Apellido'),('grado','Grado')] %}
+          <option value="{{ v }}" {{ 'selected' if request.args.orden == v }}>{{ t }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-12 d-flex flex-wrap gap-3 align-items-center">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="incompletos" value="1" id="inc" {{ 'checked' if request.args.incompletos == '1' }}>
+        <label class="form-check-label small" for="inc">Solo con datos incompletos</label>
+      </div>
+      {% if current_user.puede_gestionar_estudiantes %}
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="inactivos" value="1" id="inact" {{ 'checked' if request.args.inactivos == '1' }}>
+        <label class="form-check-label small" for="inact">Incluir inactivos</label>
+      </div>
+      {% endif %}
+      <div class="ms-auto d-flex gap-2">
+        <a href="{{ url_for('estudiantes.listado') }}" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+        <button class="btn btn-primary btn-sm"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<p class="small text-muted mb-2">{{ pagina.total }} estudiante(s) encontrados.</p>
+
+{% if pagina.items %}
+<div class="table-responsive d-none d-md-block">
+  <table class="table table-hover align-middle bg-white">
+    <thead class="table-light">
+      <tr><th>Estudiante</th><th>Documento</th><th>Grado</th>{% if current_user.es_admin %}<th>Colegio</th>{% endif %}<th>Municipio</th><th>Riesgo</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for e in pagina.items %}
+      <tr class="{{ 'text-muted' if not e.activo }}">
+        <td><a href="{{ url_for('estudiantes.detalle', estudiante_id=e.id) }}" class="fw-semibold text-decoration-none">{{ e.apellidos }}, {{ e.nombres }}</a>
+            {% if not e.activo %}<span class="badge text-bg-secondary ms-1">Inactivo</span>{% endif %}</td>
+        <td>{{ e.documento }}</td>
+        <td>{{ e.grado_nombre }}</td>
+        {% if current_user.es_admin %}<td class="small">{{ e.institucion.nombre }}</td>{% endif %}
+        <td>{{ e.municipio }}</td>
+        <td>{{ nivel_badge(e.nivel_actual, e.puntaje_actual) }} {% if e.datos_incompletos and e.nivel_actual %}{{ incompleto_badge() }}{% endif %}</td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('estudiantes.detalle', estudiante_id=e.id) }}">Ver</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{# Vista de tarjetas en celular: sin desbordamiento horizontal (RNF-03) #}
+<div class="d-md-none vstack gap-2">
+  {% for e in pagina.items %}
+  <a href="{{ url_for('estudiantes.detalle', estudiante_id=e.id) }}" class="card card-body text-decoration-none text-body py-2">
+    <div class="fw-semibold">{{ e.apellidos }}, {{ e.nombres }}</div>
+    <div class="small text-muted">{{ e.grado_nombre }} · {{ e.municipio }} · {{ e.documento }}</div>
+    {% if current_user.es_admin %}<div class="small text-muted">{{ e.institucion.nombre }}</div>{% endif %}
+    <div class="mt-1">{{ nivel_badge(e.nivel_actual, e.puntaje_actual) }} {% if e.datos_incompletos and e.nivel_actual %}{{ incompleto_badge() }}{% endif %}</div>
+  </a>
+  {% endfor %}
+</div>
+{{ paginacion(pagina, 'estudiantes.listado') }}
+{% else %}
+<div class="text-center text-muted py-5 border rounded bg-white">
+  <i class="bi bi-search fs-1 d-block mb-2"></i>No hay estudiantes que coincidan con los filtros.
+</div>
+{% endif %}
+{% endblock %}

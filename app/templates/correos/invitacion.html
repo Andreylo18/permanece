@@ -1,0 +1,8 @@
+{% extends "correos/_base.html" %}
+{% block cuerpo %}
+<p>Hola, <strong>{{ usuario.nombre }}</strong>:</p>
+<p>{{ creado_por.nombre }} te creó una cuenta en PERMANECE con el rol <strong>{{ usuario.rol_nombre }}</strong>{% if usuario.institucion %} en <strong>{{ usuario.institucion.nombre }}</strong>{% endif %}.</p>
+<p>Tu usuario es: <strong>{{ usuario.email }}</strong></p>
+<p>Para empezar, define tu contraseña con este enlace (válido por {{ horas }} horas):</p>
+{% set texto_boton = "Definir mi contraseña" %}{% include "correos/_boton.html" %}
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "correos/_base.html" %}
+{% block cuerpo %}
+<p>El estudiante <strong>{{ est.nombre_completo }}</strong> ({{ est.grado_nombre }}) pasó a <strong style="color:#c0392b">riesgo alto</strong>{% if resultado %} con {{ resultado.puntaje }}/100{% endif %}.</p>
+{% if resultado and resultado.factores_que_aplican %}
+<p>Factores que suman:</p>
+<ul>{% for f in resultado.factores_que_aplican %}<li>{{ f.nombre }} ({{ f.valor }})</li>{% endfor %}</ul>
+{% endif %}
+<p>Se recomienda revisar el caso y registrar una intervención.{% if est.email_acudiente %} El acudiente también recibió un aviso para comunicarse con el colegio.{% endif %}</p>
+{% if enlace %}{% set texto_boton = "Ver ficha del estudiante" %}{% include "correos/_boton.html" %}{% endif %}
+<p style="font-size:12px;color:#6b7280">La clasificación orienta la revisión y debe complementarse con valoración humana.</p>
+{% endblock %}

@@ -1,0 +1,66 @@
+{# Campo de formulario con error junto al campo (RNF-06) #}
+{% macro campo(field, col="col-12", ayuda=None) %}
+<div class="{{ col }}">
+  {% if field.type == "BooleanField" %}
+    <div class="form-check mt-2">
+      {{ field(class="form-check-input" + (" is-invalid" if field.errors else "")) }}
+      {{ field.label(class="form-check-label") }}
+    </div>
+  {% else %}
+    {{ field.label(class="form-label fw-semibold") }}
+    {% set cls = "form-select" if field.type == "SelectField" else "form-control" %}
+    {{ field(class=cls + (" is-invalid" if field.errors else ""),
+             **({"aria-describedby": field.id ~ "-ayuda"} if (ayuda or field.description) else {})) }}
+  {% endif %}
+  {% for e in field.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+  {% if ayuda or field.description %}
+    <div id="{{ field.id }}-ayuda" class="form-text">{{ ayuda or field.description }}</div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{# Nivel de riesgo: color + icono + texto, nunca solo color (RNF-06) #}
+{% macro nivel_badge(nivel, puntaje=None, grande=False) %}
+  {% set info = {
+    "bajo":  ("success", "bi-check-circle-fill", "Bajo"),
+    "medio": ("warning", "bi-exclamation-triangle-fill", "Medio"),
+    "alto":  ("danger",  "bi-exclamation-octagon-fill", "Alto")} %}
+  {% if nivel in info %}
+    {% set c, ic, txt = info[nivel] %}
+    <span class="badge rounded-pill text-bg-{{ c }} {{ 'fs-6 px-3 py-2' if grande }}">
+      <i class="bi {{ ic }} me-1"></i>Riesgo {{ txt }}{% if puntaje is not none %} · {{ puntaje }}/100{% endif %}
+    </span>
+  {% else %}
+    <span class="badge rounded-pill text-bg-secondary {{ 'fs-6 px-3 py-2' if grande }}">
+      <i class="bi bi-question-circle me-1"></i>Sin clasificar
+    </span>
+  {% endif %}
+{% endmacro %}
+
+{% macro incompleto_badge() %}
+  <span class="badge rounded-pill bg-light text-dark border" title="Hay factores sin registrar">
+    <i class="bi bi-hourglass-split me-1"></i>Datos incompletos
+  </span>
+{% endmacro %}
+
+{% macro paginacion(pagina, endpoint) %}
+{% if pagina.pages > 1 %}
+<nav aria-label="Paginación">
+  <ul class="pagination pagination-sm justify-content-center flex-wrap">
+    {% set args = request.args.to_dict() %}
+    <li class="page-item {{ 'disabled' if not pagina.has_prev }}">
+      {% set _ = args.update(page=pagina.prev_num or 1) %}
+      <a class="page-link" href="{{ url_for(endpoint, **args) }}">Anterior</a></li>
+    {% for p in pagina.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        {% set _ = args.update(page=p) %}
+        <li class="page-item {{ 'active' if p == pagina.page }}"><a class="page-link" href="{{ url_for(endpoint, **args) }}">{{ p }}</a></li>
+      {% else %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+    {% endfor %}
+    <li class="page-item {{ 'disabled' if not pagina.has_next }}">
+      {% set _ = args.update(page=pagina.next_num or pagina.pages) %}
+      <a class="page-link" href="{{ url_for(endpoint, **args) }}">Siguiente</a></li>
+  </ul>
+</nav>
+{% endif %}
+{% endmacro %}

@@ -1,0 +1,31 @@
+# Despliegue en Render (plan gratis). Render lee este archivo desde GitHub:
+# New + > Blueprint > selecciona el repositorio.
+services:
+  - type: web
+    name: permanece
+    runtime: python
+    plan: free
+    region: virginia            # cerca de Neon us-east-1
+    buildCommand: pip install -r requirements.txt
+    # init-db crea las tablas y el admin inicial (ADMIN_EMAIL / ADMIN_PASSWORD) si no existen
+    startCommand: flask --app run init-db && gunicorn -w 2 -b 0.0.0.0:$PORT run:app
+    healthCheckPath: /login
+    envVars:
+      - key: FLASK_ENV_NAME
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL          # cadena de conexión de Neon
+        sync: false
+      - key: APP_URL               # ej. https://permanece.onrender.com
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: CORREO_REMITENTE      # correo verificado en Brevo
+        sync: false
+      - key: CORREO_NOMBRE
+        value: PERMANECE
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

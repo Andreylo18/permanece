@@ -1,0 +1,64 @@
+:root {
+  --permanece: #1f4e79;
+  --permanece-claro: #e8f0f8;
+}
+body { background: #f5f7fa; }
+.bg-permanece { background: var(--permanece); }
+.btn-primary { --bs-btn-bg: var(--permanece); --bs-btn-border-color: var(--permanece);
+  --bs-btn-hover-bg: #173d60; --bs-btn-hover-border-color: #173d60; --bs-btn-active-bg: #12314d; }
+.btn-outline-primary { --bs-btn-color: var(--permanece); --bs-btn-border-color: var(--permanece);
+  --bs-btn-hover-bg: var(--permanece); --bs-btn-hover-border-color: var(--permanece); }
+a { color: var(--permanece); }
+.pagination { --bs-pagination-active-bg: var(--permanece); --bs-pagination-active-border-color: var(--permanece); }
+
+.logo-circulo { width: 64px; height: 64px; border-radius: 50%; background: var(--permanece);
+  color: #fff; display: grid; place-items: center; font-size: 2rem; }
+
+.card { border-color: #e3e7ee; }
+.kpi { border-width: 0 0 0 4px !important; transition: transform .1s; }
+.kpi:hover { transform: translateY(-2px); }
+
+/* Borde lateral según riesgo en la tarjeta de detalle */
+.riesgo-alto  { border-left: 5px solid #c0392b; }
+.riesgo-medio { border-left: 5px solid #e0a800; }
+.riesgo-bajo  { border-left: 5px solid #2e8b57; }
+.riesgo-sin   { border-left: 5px solid #8a94a6; }
+
+/* Cronología */
+.timeline { position: relative; padding-left: 1.25rem; }
+.timeline::before { content: ""; position: absolute; left: .35rem; top: .3rem; bottom: .3rem;
+  width: 2px; background: #dbe1ea; }
+.timeline-item { position: relative; padding: 0 0 1rem .75rem; }
+.timeline-item::before { content: ""; position: absolute; left: -1.15rem; top: .35rem; width: .75rem;
+  height: .75rem; border-radius: 50%; background: #fff; border: 2px solid #8a94a6; }
+.timeline-item.abierta::before { border-color: var(--permanece); background: var(--permanece); }
+
+.grafico { position: relative; height: 300px; }
+.grafico-dona { height: 260px; }
+
+/* RNF-03: sin desbordamiento horizontal en 360 px */
+html, body { overflow-x: hidden; }
+.breadcrumb { flex-wrap: wrap; }
+@media (max-width: 400px) {
+  .display-5 { font-size: 2.2rem; }
+  .navbar-brand { font-size: 1.1rem; }
+}
+
+/* Planilla de notas */
+.planilla { max-height: 70vh; }
+.planilla thead th { position: sticky; top: 0; z-index: 2; }
+.planilla .sticky-col { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 12rem; }
+.planilla thead .sticky-col { z-index: 3; background: var(--bs-table-bg, #f8f9fa); }
+.nota-input { width: 4.5rem; margin: 0 auto; }
+.fila-asistencia .btn-group .btn { min-width: 5.5rem; }
+@media (max-width: 576px) { .fila-asistencia .btn-group .btn { min-width: 0; font-size: .75rem; } }
+
+/* Ficha del estudiante */
+.indicador { border-left: 4px solid #dbe1ea; }
+.indicador.malo { border-left-color: #c0392b; }
+.indicador.ok { border-left-color: #2e8b57; }
+.nav-tabs .nav-link { color: #495057; }
+.nav-tabs .nav-link.active { color: var(--permanece); font-weight: 600; }
+.avatar-est { width: 56px; height: 56px; border-radius: 50%; background: var(--permanece-claro);
+  color: var(--permanece); display: grid; place-items: center; font-weight: 700; font-size: 1.25rem; flex-shrink: 0; }
+.nav-pills { --bs-nav-pills-link-active-bg: var(--permanece); --bs-nav-link-color: var(--permanece); --bs-nav-link-hover-color: #173d60; }

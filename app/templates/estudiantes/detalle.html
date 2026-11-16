@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% from "_macros.html" import nivel_badge, incompleto_badge %}
+{% block titulo %}{{ est.nombre_completo }}{% endblock %}
+{% macro num(v, dec=1) %}{{ ('%.*f'|format(dec, v))|replace('.', ',') }}{% endmacro %}
+{% block contenido %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('estudiantes.listado') }}">Estudiantes</a></li>
+  <li class="breadcrumb-item active">{{ est.nombre_completo }}</li>
+</ol></nav>
+
+{# ---------------- Encabezado del estudiante ---------------- #}
+<div class="card mb-3 riesgo-{{ (resultado.nivel if resultado else 'sin') }}">
+  <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+    <div class="avatar-est" aria-hidden="true">{{ est.nombres[0] }}{{ est.apellidos[0] }}</div>
+    <div class="flex-grow-1">
+      <h1 class="h3 mb-1">{{ est.nombre_completo }}
+        {% if not est.activo %}<span class="badge text-bg-secondary align-middle fs-6">Inactivo</span>{% endif %}</h1>
+      <div class="text-muted small">{{ est.grado_nombre }} · {{ est.institucion.nombre }} · {{ est.municipio }} · Doc. {{ est.documento }}</div>
+      <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+        {% if resultado %}{{ nivel_badge(resultado.nivel, resultado.puntaje) }}{% if resultado.datos_incompletos %} {{ incompleto_badge() }}{% endif %}
+        {% else %}{{ nivel_badge(none) }}{% endif %}
+        {% if est.intervenciones_abiertas %}<span class="badge rounded-pill text-bg-primary"><i class="bi bi-journal-text me-1"></i>{{ est.intervenciones_abiertas|length }} intervención(es) abierta(s)</span>{% endif %}
+      </div>
+    </div>
+    <div class="d-flex flex-column gap-2 align-items-stretch">
+      {% if periodos %}
+      <form method="get" class="d-flex gap-1">
+        <select name="periodo" class="form-select form-select-sm" aria-label="Periodo" onchange="this.form.submit()">
+          {% for p in periodos %}<option value="{{ p.id }}" {{ 'selected' if periodo and p.id == periodo.id }}>{{ p.nombre }}{{ ' (activo)' if p.activo }}</option>{% endfor %}
+        </select>
+      </form>
+      {% endif %}
+      <div class="d-flex flex-wrap gap-2">
+        <a href="{{ url_for('seguimiento.nueva', estudiante_id=est.id) }}" class="btn btn-primary btn-sm"><i class="bi bi-journal-plus me-1"></i>Intervención</a>
+        <a href="{{ url_for('estudiantes.factores', estudiante_id=est.id) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-clipboard-data me-1"></i>Factores</a>
+        {% if current_user.puede_gestionar_estudiantes %}
+        <a href="{{ url_for('estudiantes.editar', estudiante_id=est.id) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ---------------- Indicadores del periodo ---------------- #}
+<div class="row g-3 mb-3">
+  {% set asis = academico.asistencia_pct %}
+  <div class="col-6 col-lg-3"><div class="card card-body indicador {{ 'malo' if asis is not none and asis < 80 else ('ok' if asis is not none) }}">
+    <div class="small text-muted">Asistencia</div>
+    <div class="fs-3 fw-bold">{% if asis is not none %}{{ num(asis) }} %{% else %}—{% endif %}</div>
+    <div class="small text-muted">{{ academico.ausencias }} falla(s) · {{ academico.excusas }} con excusa</div></div></div>
+  {% set prom = academico.promedio %}
+  <div class="col-6 col-lg-3"><div class="card card-body indicador {{ 'malo' if prom is not none and prom < 3 else ('ok' if prom is not none) }}">
+    <div class="small text-muted">Promedio del periodo</div>
+    <div class="fs-3 fw-bold">{% if prom is not none %}{{ num(prom, 2) }}{% else %}—{% endif %}</div>
+    <div class="small text-muted">sobre 5,0</div></div></div>
+  {% set rep = academico.reprobadas %}
+  <div class="col-6 col-lg-3"><div class="card card-body indicador {{ 'malo' if rep is not none and rep >= 3 else ('ok' if rep is not none) }}">
+    <div class="small text-muted">Materias reprobadas</div>
+    <div class="fs-3 fw-bold">{{ rep if rep is not none else '—' }}</div>
+    <div class="small text-muted">de {{ academico.materias|length }} materias</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card card-body indicador">
+    <div class="small text-muted">Riesgo {{ periodo.nombre if periodo else '' }}</div>
+    <div class="fs-3 fw-bold">{{ resultado.puntaje if resultado else '—' }}<span class="fs-6 text-muted">/100</span></div>
+    <div class="small text-muted">{{ resultado.interpretacion if resultado else 'Sin clasificar' }}</div></div></div>
+</div>
+
+{# ---------------- Pestañas ---------------- #}
+<ul class="nav nav-tabs" role="tablist">
+  <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-notas" type="button" role="tab"><i class="bi bi-mortarboard me-1"></i>Notas</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-asistencia" type="button" role="tab"><i class="bi bi-calendar-check me-1"></i>Asistencia</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-riesgo" type="button" role="tab"><i class="bi bi-activity me-1"></i>Riesgo</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-seguimiento" type="button" role="tab" id="tab-seguimiento"><i class="bi bi-journal-text me-1"></i>Seguimiento <span class="badge text-bg-light border">{{ est.intervenciones|length }}</span></button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-datos" type="button" role="tab"><i class="bi bi-person-vcard me-1"></i>Datos y acudiente</button></li>
+</ul>
+
+<div class="tab-content card border-top-0 rounded-top-0 mb-4">
+  {# ---- Notas ---- #}
+  <div class="tab-pane fade show active card-body" id="t-notas" role="tabpanel">
+    {% if academico.materias %}
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Materia</th><th>Docente</th><th class="text-center">Evaluado</th><th class="text-center">Nota</th><th>Estado</th></tr></thead>
+        <tbody>
+        {% for m in academico.materias %}
+          <tr>
+            <td class="fw-semibold">{{ m.asignacion.materia.nombre }}
+              {% if m.actividades %}
+              <button class="btn btn-link btn-sm p-0 ms-1 align-baseline" type="button" data-bs-toggle="collapse" data-bs-target="#act-{{ m.asignacion.id }}" aria-expanded="false">ver actividades</button>
+              <div class="collapse" id="act-{{ m.asignacion.id }}">
+                <ul class="small text-muted mb-0 mt-1 ps-3">
+                  {% for nombre, pct, valor in m.actividades %}<li>{{ nombre }} ({{ pct }} %): <strong>{{ num(valor) if valor is not none else 'sin calificar' }}</strong></li>{% endfor %}
+                </ul>
+              </div>
+              {% endif %}
+            </td>
+            <td class="small">{{ m.asignacion.docente.nombre }}</td>
+            <td class="text-center small">{{ m.porcentaje_evaluado }} %</td>
+            <td class="text-center fs-5 fw-bold {{ 'text-danger' if m.reprobada }}">{{ num(m.nota) if m.nota is not none else '—' }}</td>
+            <td>{% if m.nota is none %}<span class="badge text-bg-light border">Sin notas</span>
+                {% elif m.reprobada %}<span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Reprobando</span>
+                {% else %}<span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Aprobando</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="small text-muted mt-2 mb-0">Nota de cada materia = promedio ponderado por el porcentaje de las actividades calificadas. Se aprueba con 3,0.</p>
+    {% else %}
+    <div class="text-center text-muted py-4"><i class="bi bi-book fs-1 d-block mb-2"></i>El curso {{ est.grado_nombre }} aún no tiene materias asignadas.</div>
+    {% endif %}
+  </div>
+
+  {# ---- Asistencia ---- #}
+  <div class="tab-pane fade card-body" id="t-asistencia" role="tabpanel">
+    {% if academico.clases %}
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Materia</th><th class="text-center">Clases</th><th class="text-center">Presente</th><th class="text-center">Tarde</th><th class="text-center">Fallas</th><th class="text-center">Con excusa</th><th class="text-center">Asistencia</th></tr></thead>
+        <tbody>
+        {% for m in academico.materias if m.clases %}
+          <tr>
+            <td class="fw-semibold">{{ m.asignacion.materia.nombre }}</td>
+            <td class="text-center">{{ m.clases }}</td><td class="text-center">{{ m.presentes }}</td><td class="text-center">{{ m.tardes }}</td>
+            <td class="text-center {{ 'text-danger fw-semibold' if m.ausencias }}">{{ m.ausencias }}</td><td class="text-center">{{ m.excusas }}</td>
+            <td class="text-center fw-bold {{ 'text-danger' if m.asistencia_pct is not none and m.asistencia_pct < 80 }}">{{ (num(m.asistencia_pct) ~ ' %') if m.asistencia_pct is not none else '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="small text-muted mt-2 mb-0">Asistencia = (presente + tarde) ÷ (clases − ausencias con excusa). Bajo 80 % suma al riesgo.</p>
+    {% else %}
+    <div class="text-center text-muted py-4"><i class="bi bi-calendar-x fs-1 d-block mb-2"></i>Aún no se ha tomado asistencia en {{ periodo.nombre if periodo else 'este periodo' }}.</div>
+    {% endif %}
+  </div>
+
+  {# ---- Riesgo ---- #}
+  <div class="tab-pane fade card-body" id="t-riesgo" role="tabpanel">
+    {% if resultado %}
+      <div class="row g-4">
+        <div class="col-12 col-lg-6">
+          <h2 class="h6">Factores evaluados <small class="text-muted">· {{ registro.periodo }}</small></h2>
+          <ul class="list-group list-group-flush small">
+            {% for f in resultado.factores %}
+            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+              <span>
+                {% if f.faltante %}<i class="bi bi-dash-circle text-secondary me-1" aria-hidden="true"></i>
+                {% elif f.aplica %}<i class="bi bi-exclamation-circle-fill text-danger me-1" aria-hidden="true"></i>
+                {% else %}<i class="bi bi-check-circle text-success me-1" aria-hidden="true"></i>{% endif %}
+                {{ f.nombre }} <span class="text-muted">({{ f.valor }})</span>
+              </span>
+              <span class="fw-semibold {{ 'text-danger' if f.aplica else 'text-muted' }}">{{ '+' ~ f.puntos if f.aplica else ('sin dato' if f.faltante else 'no aplica') }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% if resultado.datos_incompletos %}
+          <div class="alert alert-warning small py-2 mt-3 mb-0"><i class="bi bi-hourglass-split me-1"></i><strong>Datos incompletos:</strong>
+            {{ resultado.faltantes|map(attribute='nombre')|join(', ') }}. Completa la información antes de descartar riesgo.</div>
+          {% endif %}
+          {% if registro.observaciones %}<p class="small mt-3 mb-0"><strong>Observaciones:</strong> {{ registro.observaciones }}</p>{% endif %}
+          <p class="small text-muted mt-3 mb-0">Actualizado el {{ registro.actualizado_en|hora_local }}. El puntaje orienta la revisión; no es una predicción de deserción.</p>
+        </div>
+        <div class="col-12 col-lg-6">
+          <h2 class="h6">Historial por periodo</h2>
+          <div class="table-responsive">
+            <table class="table table-sm small mb-0">
+              <thead><tr><th>Periodo</th><th>Puntaje</th><th>Nivel</th><th>Asist.</th><th>Prom.</th></tr></thead>
+              <tbody>
+              {% for r in est.registros %}
+                <tr class="{{ 'table-active' if r.id == registro.id }}"><td>{{ r.periodo }}</td><td>{{ r.puntaje }}</td>
+                  <td>{{ nivel_badge(r.nivel) }}</td>
+                  <td>{{ (num(r.asistencia_pct|float) ~ ' %') if r.asistencia_pct is not none else '—' }}</td>
+                  <td>{{ num(r.promedio|float, 2) if r.promedio is not none else '—' }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="text-center text-muted py-4"><i class="bi bi-clipboard-x fs-1 d-block mb-2"></i>Aún no hay clasificación en este periodo. Se calcula sola cuando los docentes registran notas o asistencia.</div>
+    {% endif %}
+  </div>
+
+  {# ---- Seguimiento ---- #}
+  <div class="tab-pane fade card-body" id="t-seguimiento" role="tabpanel">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <span class="small text-muted">{{ est.intervenciones|length }} registro(s) · {{ est.intervenciones_abiertas|length }} abierta(s)</span>
+      <a href="{{ url_for('seguimiento.nueva', estudiante_id=est.id) }}" class="btn btn-sm btn-primary"><i class="bi bi-journal-plus me-1"></i>Registrar intervención</a>
+    </div>
+    {% if est.intervenciones %}
+    <ol class="timeline list-unstyled mb-0">
+      {% for i in est.intervenciones %}
+      <li class="timeline-item {{ 'abierta' if i.estado == 'abierta' }}">
+        <div class="d-flex flex-wrap justify-content-between gap-2">
+          <div><strong>{{ i.tipo_nombre }}</strong>
+            <span class="badge {{ 'text-bg-primary' if i.estado == 'abierta' else 'text-bg-light border' }} ms-1">{{ i.estado|capitalize }}</span></div>
+          <div class="small text-muted">{{ i.fecha.strftime('%d/%m/%Y') }} · {{ i.responsable.nombre }}</div>
+        </div>
+        <p class="mb-1 small">{{ i.descripcion }}</p>
+        {% if i.compromisos %}<p class="mb-1 small"><strong>Compromisos:</strong> {{ i.compromisos }}</p>{% endif %}
+        {% if current_user.es_admin or current_user.es_colegio or i.responsable_id == current_user.id %}
+        <form method="post" action="{{ url_for('seguimiento.cambiar_estado', intervencion_id=i.id) }}" class="m-0">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-link btn-sm p-0">{{ 'Marcar como cerrada' if i.estado == 'abierta' else 'Reabrir' }}</button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <div class="text-center text-muted py-4"><i class="bi bi-journal fs-1 d-block mb-2"></i>Todavía no se han registrado intervenciones para este estudiante.</div>
+    {% endif %}
+  </div>
+
+  {# ---- Datos ---- #}
+  <div class="tab-pane fade card-body" id="t-datos" role="tabpanel">
+    <div class="row g-4">
+      <div class="col-12 col-md-6">
+        <h2 class="h6">Estudiante</h2>
+        <dl class="row small mb-0">
+          <dt class="col-5">Documento</dt><dd class="col-7">{{ est.documento }}</dd>
+          <dt class="col-5">Nacimiento</dt><dd class="col-7">{{ est.fecha_nacimiento.strftime('%d/%m/%Y') if est.fecha_nacimiento else '—' }}</dd>
+          <dt class="col-5">Curso</dt><dd class="col-7">{{ est.grado_nombre }}</dd>
+          <dt class="col-5">Colegio</dt><dd class="col-7">{{ est.institucion.nombre }} · {{ est.municipio }}</dd>
+        </dl>
+      </div>
+      <div class="col-12 col-md-6">
+        <h2 class="h6">Acudiente</h2>
+        <dl class="row small mb-0">
+          <dt class="col-5">Nombre</dt><dd class="col-7">{{ est.acudiente or '—' }}</dd>
+          <dt class="col-5">Teléfono</dt><dd class="col-7">{% if est.telefono_acudiente %}<a href="tel:{{ est.telefono_acudiente }}">{{ est.telefono_acudiente }}</a>{% else %}—{% endif %}</dd>
+          <dt class="col-5">Correo</dt><dd class="col-7 text-break">{% if est.email_acudiente %}<a href="mailto:{{ est.email_acudiente }}">{{ est.email_acudiente }}</a>{% else %}<span class="text-warning-emphasis">Sin correo: no recibirá alertas</span>{% endif %}</dd>
+        </dl>
+      </div>
+    </div>
+    {% if current_user.puede_gestionar_estudiantes %}
+    <form method="post" action="{{ url_for('estudiantes.cambiar_estado', estudiante_id=est.id) }}" class="mt-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-sm {{ 'btn-outline-danger' if est.activo else 'btn-outline-success' }}">{{ 'Desactivar estudiante' if est.activo else 'Reactivar estudiante' }}</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Abre la pestaña indicada en la URL (#seguimiento, #asistencia…)
+  (function () {
+    const mapa = { "#cronologia": "#t-seguimiento", "#seguimiento": "#t-seguimiento", "#asistencia": "#t-asistencia",
+                   "#riesgo": "#t-riesgo", "#datos": "#t-datos" };
+    const destino = mapa[location.hash];
+    if (destino) bootstrap.Tab.getOrCreateInstance(document.querySelector(`[data-bs-target="${destino}"]`)).show();
+  })();
+</script>
+{% endblock %}

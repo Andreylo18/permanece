@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}Iniciar sesión{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-12 col-sm-9 col-md-6 col-lg-4">
+    <div class="text-center mb-4">
+      <div class="logo-circulo mx-auto mb-2"><i class="bi bi-mortarboard-fill"></i></div>
+      <h1 class="h3 fw-bold mb-0">PERMANECE</h1>
+      <p class="text-muted small">Identificación y seguimiento de estudiantes en riesgo académico · Sabana Centro</p>
+    </div>
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }}
+          <div class="row g-3">
+            {{ campo(form.email) }}
+            {{ campo(form.password) }}
+            {{ campo(form.recordar) }}
+            <div class="col-12 d-grid"><button class="btn btn-primary">Ingresar</button></div>
+            <div class="col-12 text-center small"><a href="{{ url_for('auth.olvide') }}">¿Olvidaste tu contraseña?</a></div>
+          </div>
+        </form>
+      </div>
+    </div>
+    <p class="text-center small text-muted mt-3">Acceso solo para personal autorizado.</p>
+  </div>
+</div>
+{% endblock %}

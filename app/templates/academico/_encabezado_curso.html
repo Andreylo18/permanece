@@ -1,0 +1,14 @@
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('academico.mis_cursos') }}">{{ 'Mis cursos' if current_user.rol == 'docente' else 'Notas y asistencia' }}</a></li>
+  <li class="breadcrumb-item active">{{ a.nombre }}</li>
+</ol></nav>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ a.materia.nombre }} <span class="text-muted fw-normal">· {{ a.curso_nombre }}</span></h1>
+    <div class="small text-muted">Periodo {{ periodo.nombre }} · Docente: {{ a.docente.nombre }}</div>
+  </div>
+  <ul class="nav nav-pills">
+    <li class="nav-item"><a class="nav-link {{ 'active' if pestana == 'notas' }}" href="{{ url_for('academico.notas', asignacion_id=a.id) }}"><i class="bi bi-pencil-square me-1"></i>Notas</a></li>
+    <li class="nav-item"><a class="nav-link {{ 'active' if pestana == 'asistencia' }}" href="{{ url_for('academico.asistencia', asignacion_id=a.id) }}"><i class="bi bi-person-check me-1"></i>Asistencia</a></li>
+  </ul>
+</div>

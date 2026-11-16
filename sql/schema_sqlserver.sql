@@ -1,0 +1,2 @@
+-- OBSOLETO: PERMANECE ahora usa PostgreSQL (Neon). Ver sql/schema_postgres.sql.
+-- Puedes borrar este archivo.

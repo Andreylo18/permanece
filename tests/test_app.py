@@ -1,0 +1,240 @@
+"""Acceso, permisos por rol, aislamiento entre colegios, estudiantes, seguimiento e indicadores."""
+from app.dashboard.routes import calcular_indicadores
+from app.extensions import db
+from app.models import Asignacion, Estudiante, Institucion, Intervencion, Usuario
+
+from .conftest import ESTUDIANTE_OK, inst_id, login, logout
+
+
+def _crear(client, datos=None):
+    client.post("/estudiantes/nuevo", data=datos or ESTUDIANTE_OK)
+    return db.session.execute(db.select(Estudiante).order_by(Estudiante.id.desc())).scalars().first()
+
+
+# ---------- BE-02: acceso ----------
+def test_rutas_protegidas_redirigen_a_login(client):
+    for url in ("/dashboard", "/estudiantes/", "/usuarios/", "/colegios/"):
+        r = client.get(url)
+        assert r.status_code == 302 and "/login" in r.headers["Location"]
+
+
+def test_login_incorrecto(client):
+    assert "Correo o contraseña incorrectos" in login(client, "admin@t.co", "mala").get_data(as_text=True)
+
+
+def test_contrasena_guardada_con_hash(app):
+    u = db.session.execute(db.select(Usuario).filter_by(email="admin@t.co")).scalar_one()
+    assert u.password_hash != "Clave2026*" and u.check_password("Clave2026*")
+
+
+def test_logout_bloquea_rutas(admin):
+    admin.post("/logout")
+    assert admin.get("/dashboard").status_code == 302
+
+
+def test_usuario_inactivo_no_entra(client):
+    u = db.session.execute(db.select(Usuario).filter_by(email="docente@t.co")).scalar_one()
+    u.activo = False
+    db.session.commit()
+    assert "desactivado" in login(client, "docente@t.co").get_data(as_text=True)
+
+
+def test_colegio_inactivo_bloquea_a_sus_usuarios(client):
+    db.session.get(Institucion, inst_id("Colegio A")).activa = False
+    db.session.commit()
+    assert "colegio está desactivado" in login(client, "docente@t.co").get_data(as_text=True)
+    assert client.get("/dashboard").status_code == 302
+
+
+def test_no_redireccion_abierta(client):
+    r = client.post("/login?next=https://malicioso.com", data={"email": "admin@t.co", "password": "Clave2026*"})
+    assert "malicioso" not in r.headers["Location"]
+
+
+# ---------- Roles ----------
+def test_solo_admin_gestiona_colegios(client):
+    for email in ("colegio.a@t.co", "docente@t.co"):
+        login(client, email)
+        assert client.get("/colegios/").status_code == 403
+        assert client.get("/colegios/nueva").status_code == 403
+        logout(client)
+
+
+def test_admin_crea_colegio_con_credenciales(admin, client):
+    r = admin.post("/colegios/nueva", data={
+        "nombre": "IED Nueva", "municipio": "Sopó", "sector": "oficial", "activa": "y",
+        "usuario_nombre": "Coordinación", "usuario_email": "nueva@t.co", "usuario_password": "Segura2026"})
+    assert r.status_code == 302
+    u = db.session.execute(db.select(Usuario).filter_by(email="nueva@t.co")).scalar_one()
+    assert u.rol == "colegio" and u.institucion.nombre == "IED Nueva"
+    # Se envía (o simula) el correo de invitación con enlace para definir contraseña
+    correos = admin.application.extensions.get("correos_simulados", [])
+    assert correos and correos[-1]["para"] == "nueva@t.co" and "/definir-contrasena/" in correos[-1]["enlace"]
+    logout(admin)
+    html = login(client, "nueva@t.co", "Segura2026").get_data(as_text=True)
+    assert "IED Nueva" in html
+
+
+def test_crear_colegio_exige_credenciales(admin):
+    html = admin.post("/colegios/nueva", data={"nombre": "X", "municipio": "Sopó", "sector": "oficial"}
+                      ).get_data(as_text=True)
+    assert "Este campo es obligatorio" in html
+    assert db.session.execute(db.select(Institucion).filter_by(nombre="X")).scalar() is None
+
+
+def test_docente_no_gestiona_usuarios_ni_estudiantes(docente):
+    assert docente.get("/usuarios/").status_code == 403
+    assert docente.get("/estudiantes/nuevo").status_code == 403
+    assert docente.post("/estudiantes/nuevo", data=ESTUDIANTE_OK).status_code == 403
+
+
+def test_colegio_solo_crea_docentes_de_su_colegio(colegio):
+    # Intenta crear un admin en otro colegio: se fuerza docente del colegio A
+    colegio.post("/usuarios/nuevo", data={
+        "nombre": "Profe", "email": "profe@t.co", "rol": "admin", "institucion_id": str(inst_id("Colegio B")),
+        "activo": "y", "password": "Segura2026", "confirmar": "Segura2026"})
+    u = db.session.execute(db.select(Usuario).filter_by(email="profe@t.co")).scalar_one()
+    assert u.rol == "docente" and u.institucion.nombre == "Colegio A"
+
+
+def test_colegio_no_ve_ni_edita_usuarios_de_otro_colegio(colegio):
+    html = colegio.get("/usuarios/").get_data(as_text=True)
+    assert "docente@t.co" in html and "docente.b@t.co" not in html
+    otro = db.session.execute(db.select(Usuario).filter_by(email="docente.b@t.co")).scalar_one()
+    assert colegio.get(f"/usuarios/{otro.id}/editar").status_code == 404
+
+
+# ---------- BE-03: estudiantes y aislamiento ----------
+def test_colegio_registra_estudiante_en_su_colegio(colegio):
+    # Aunque envíe el id de otro colegio, queda en el suyo
+    est = _crear(colegio, dict(ESTUDIANTE_OK, institucion_id=str(inst_id("Colegio B"))))
+    assert est.institucion.nombre == "Colegio A" and est.municipio == "Chía"
+
+
+def test_admin_debe_elegir_colegio(admin):
+    html = admin.post("/estudiantes/nuevo", data=dict(ESTUDIANTE_OK, institucion_id="999")).get_data(as_text=True)
+    assert "Selecciona un colegio válido" in html
+    est = _crear(admin, dict(ESTUDIANTE_OK, institucion_id=str(inst_id("Colegio B"))))
+    assert est.institucion.nombre == "Colegio B"
+
+
+def test_docente_no_ve_estudiantes_de_otro_colegio(client):
+    login(client, "colegio.a@t.co")
+    est = _crear(client)
+    logout(client)
+    login(client, "docente.b@t.co")
+    assert client.get(f"/estudiantes/{est.id}").status_code == 404
+    assert client.get(f"/estudiantes/{est.id}/factores").status_code == 404
+    assert client.get(f"/estudiantes/{est.id}/intervenciones/nueva").status_code == 404
+    assert "Prueba Ficticia" not in client.get("/estudiantes/").get_data(as_text=True)
+    logout(client)
+    login(client, "docente@t.co")  # mismo colegio: sí lo ve
+    assert client.get(f"/estudiantes/{est.id}").status_code == 200
+
+
+def test_mismo_documento_en_colegios_distintos(client):
+    login(client, "colegio.a@t.co")
+    _crear(client)
+    logout(client)
+    login(client, "colegio.b@t.co")
+    _crear(client)
+    assert db.session.execute(db.select(db.func.count(Estudiante.id))).scalar() == 2
+
+
+def test_documento_duplicado_en_mismo_colegio(colegio):
+    _crear(colegio)
+    r = colegio.post("/estudiantes/nuevo", data=ESTUDIANTE_OK)
+    assert "Ya existe un estudiante con este documento" in r.get_data(as_text=True)
+
+
+def test_datos_invalidos_conservan_validos(colegio):
+    html = colegio.post("/estudiantes/nuevo", data=dict(ESTUDIANTE_OK, documento="12")).get_data(as_text=True)
+    assert "Revisa los campos marcados" in html and 'value="Laura"' in html
+
+
+# ---------- BE-04: clasificación ----------
+def test_factores_sin_periodo_activo_avisa(colegio):
+    est = _crear(colegio)
+    html = colegio.get(f"/estudiantes/{est.id}/factores", follow_redirects=True).get_data(as_text=True)
+    assert "no tiene un periodo activo" in html
+
+
+def test_factores_manuales_marcan_incompleto(colegio):
+    from datetime import date, timedelta
+    from app.models import Periodo
+    db.session.add(Periodo(institucion_id=inst_id("Colegio A"), nombre="2026-P4", activo=True,
+                           fecha_inicio=date.today() - timedelta(days=10), fecha_fin=date.today() + timedelta(days=10)))
+    db.session.commit()
+    est = _crear(colegio)
+    colegio.post(f"/estudiantes/{est.id}/factores", data={"apoyo_familiar": "insuficiente", "reporte_activo": "1"})
+    db.session.refresh(est)
+    # Sin notas ni asistencia: solo suman apoyo (15) + reporte (10) y queda incompleto
+    assert (est.puntaje_actual, est.nivel_actual, est.datos_incompletos) == (25, "bajo", True)
+
+
+# ---------- BE-05: seguimiento e indicadores ----------
+def test_intervencion_conserva_autor_y_fecha(client):
+    login(client, "colegio.a@t.co")
+    est = _crear(client)
+    logout(client)
+    login(client, "docente@t.co")
+    client.post(f"/estudiantes/{est.id}/intervenciones/nueva", data={
+        "fecha": "2026-11-01", "tipo": "tutoria", "estado": "abierta",
+        "descripcion": "Tutoría de matemáticas con plan de refuerzo."})
+    inter = db.session.execute(db.select(Intervencion)).scalar_one()
+    assert inter.responsable.email == "docente@t.co" and str(inter.fecha) == "2026-11-01"
+
+
+def test_dashboard_por_colegio(client, app):
+    from app.cli import sembrar_datos
+    sembrar_datos(30)
+    login(client, "admin@t.co")
+    with app.test_request_context():
+        from flask_login import login_user
+        admin = db.session.execute(db.select(Usuario).filter_by(email="admin@t.co")).scalar_one()
+        login_user(admin)
+        d = calcular_indicadores({})
+        assert d["total"] == 30 == sum(d["por_nivel"].values())
+        assert sum(sum(f.values()) for f in d["matriz"].values()) == 30
+        assert sum(sum(f.values()) for f in d["por_colegio"].values()) == 30
+        assert d["por_nivel"]["alto"] > 0
+        inst = db.session.execute(db.select(Institucion).filter_by(municipio="Chía", nombre="I.E.D. Ficticia San Gabriel")).scalar_one()
+        assert calcular_indicadores({"institucion": str(inst.id)})["total"] == 10
+        assert calcular_indicadores({"grado": "0"})["total"] == 0
+
+        # Un docente solo cuenta los de su colegio, aunque pida otro
+        doc = db.session.execute(db.select(Usuario).filter_by(email="docente.sangabriel@permanece.example")).scalar_one()
+        login_user(doc)
+        otro = db.session.execute(db.select(Institucion).filter_by(nombre="Colegio Ficticio La Sabana")).scalar_one()
+        assert calcular_indicadores({})["total"] == 10
+        assert calcular_indicadores({"institucion": str(otro.id)})["total"] == 0
+
+
+def test_paginas_principales_cargan(client, app):
+    from app.cli import sembrar_datos
+    sembrar_datos(20)
+    est = db.session.execute(db.select(Estudiante).filter(Estudiante.nivel_actual.is_not(None))).scalars().first()
+    inst = est.institucion_id
+    login(client, "admin@t.co")
+    for url in ("/dashboard", f"/dashboard?institucion={inst}&nivel=alto", "/estudiantes/",
+                f"/estudiantes/?institucion={inst}&orden=nombre", f"/estudiantes/{est.id}",
+                f"/estudiantes/{est.id}/factores", f"/estudiantes/{est.id}/editar", "/estudiantes/nuevo",
+                f"/estudiantes/{est.id}/intervenciones/nueva", "/usuarios/", f"/usuarios/?institucion={inst}",
+                "/usuarios/nuevo", "/colegios/", "/colegios/nueva", f"/colegios/{inst}/editar"):
+        assert client.get(url).status_code == 200, url
+    assert client.get("/estudiantes/99999").status_code == 404
+    logout(client)
+    coord = db.session.execute(db.select(Usuario).filter_by(rol="colegio", institucion_id=inst)).scalars().first()
+    login(client, coord.email, "Colegio2026*")
+    asig = db.session.execute(db.select(Asignacion).filter_by(institucion_id=inst)).scalars().first()
+    for url in ("/dashboard", "/estudiantes/", "/estudiantes/nuevo", f"/estudiantes/{est.id}/editar",
+                f"/estudiantes/{est.id}", f"/estudiantes/{est.id}/factores",
+                "/usuarios/", "/usuarios/nuevo", "/academico/periodos", "/academico/materias", "/academico/cursos",
+                "/academico/mis-cursos", f"/academico/cursos/{asig.id}/notas", f"/academico/cursos/{asig.id}/asistencia",
+                f"/academico/cursos/{asig.id}/asistencia/tomar"):
+        assert client.get(url).status_code == 200, url
+    logout(client)
+    login(client, asig.docente.email, "Docente2026*")
+    for url in ("/academico/mis-cursos", f"/academico/cursos/{asig.id}/notas",
+                f"/academico/cursos/{asig.id}/asistencia/tomar", f"/estudiantes/{est.id}"):
+        assert client.get(url).status_code == 200, url

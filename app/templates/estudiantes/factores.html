@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}Factores de riesgo{% endblock %}
+{% block contenido %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('estudiantes.listado') }}">Estudiantes</a></li>
+  <li class="breadcrumb-item"><a href="{{ url_for('estudiantes.detalle', estudiante_id=est.id) }}">{{ est.nombre_completo }}</a></li>
+  <li class="breadcrumb-item active">Factores</li>
+</ol></nav>
+
+<h1 class="h3 mb-1">Factores de riesgo · {{ periodo.nombre }}</h1>
+<p class="text-muted">{{ est.nombre_completo }} · {{ est.grado_nombre }} · {{ est.institucion.nombre }}</p>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-8">
+    <div class="card card-body mb-3">
+      <h2 class="h6 text-uppercase text-muted">Calculado de notas y asistencia</h2>
+      <p class="small text-muted">Estos datos salen automáticamente de lo que registran los docentes; no se digitan aquí.</p>
+      <div class="row g-3 text-center">
+        <div class="col-4"><div class="small text-muted">Asistencia</div>
+          <div class="fs-4 fw-bold">{% if academico.asistencia_pct is not none %}{{ ('%.1f'|format(academico.asistencia_pct))|replace('.', ',') }} %{% else %}—{% endif %}</div>
+          <div class="small text-muted">{{ academico.clases }} clases · {{ academico.ausencias }} fallas</div></div>
+        <div class="col-4"><div class="small text-muted">Promedio</div>
+          <div class="fs-4 fw-bold">{% if academico.promedio is not none %}{{ ('%.2f'|format(academico.promedio))|replace('.', ',') }}{% else %}—{% endif %}</div>
+          <div class="small text-muted">sobre 5,0</div></div>
+        <div class="col-4"><div class="small text-muted">Materias reprobadas</div>
+          <div class="fs-4 fw-bold">{{ academico.reprobadas if academico.reprobadas is not none else '—' }}</div>
+          <div class="small text-muted">de {{ academico.materias|length }}</div></div>
+      </div>
+    </div>
+
+    <form method="post" novalidate class="card card-body" id="form-factores">
+      {{ form.hidden_tag() }}
+      {# Valores calculados para la vista previa en vivo #}
+      <input type="hidden" name="asistencia_pct" value="{{ academico.asistencia_pct if academico.asistencia_pct is not none else '' }}">
+      <input type="hidden" name="asignaturas_reprobadas" value="{{ academico.reprobadas if academico.reprobadas is not none else '' }}">
+      <input type="hidden" name="promedio" value="{{ academico.promedio if academico.promedio is not none else '' }}">
+      <h2 class="h6 text-uppercase text-muted">Registrado por orientación / coordinación</h2>
+      <div class="row g-3">
+        {{ campo(form.apoyo_familiar, "col-12 col-md-6") }}
+        {{ campo(form.reporte_activo, "col-12 col-md-6", "Reporte de convivencia u orientación vigente") }}
+        {{ campo(form.observaciones, "col-12") }}
+      </div>
+      <div class="alert alert-light border small mt-3 mb-3">
+        <i class="bi bi-info-circle me-1"></i>Los datos vacíos no suman puntos, pero el caso queda marcado como
+        <strong>datos incompletos</strong>: no se interpretan como ausencia de riesgo.
+      </div>
+      <div class="d-flex gap-2 justify-content-end">
+        <a href="{{ url_for('estudiantes.detalle', estudiante_id=est.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+        <button class="btn btn-primary"><i class="bi bi-calculator me-1"></i>Guardar y recalcular</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-12 col-lg-4">
+    <div class="card sticky-lg-top" style="top:1rem">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-muted">Vista previa</h2>
+        <div id="preview" class="mb-3" aria-live="polite">
+          <div class="display-6 fw-bold" id="pv-puntaje">—</div>
+          <div id="pv-nivel" class="mb-2"></div>
+          <ul id="pv-factores" class="small mb-0 ps-3"></ul>
+        </div>
+        <h3 class="h6 text-uppercase text-muted">Reglas vigentes</h3>
+        <table class="table table-sm small mb-2">
+          <tr><td>Asistencia &lt; 80 %</td><td class="text-end">30</td></tr>
+          <tr><td>≥ 3 materias reprobadas</td><td class="text-end">25</td></tr>
+          <tr><td>Promedio &lt; 3,0</td><td class="text-end">20</td></tr>
+          <tr><td>Apoyo familiar insuficiente</td><td class="text-end">15</td></tr>
+          <tr><td>Reporte de seguimiento activo</td><td class="text-end">10</td></tr>
+        </table>
+        <p class="small text-muted mb-0">Bajo 0–29 · Medio 30–59 · Alto 60–100.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>window.PERMANECE_PREVIEW_URL = "{{ url_for('estudiantes.vista_previa_riesgo') }}";</script>
+<script src="{{ url_for('static', filename='js/factores.js') }}"></script>
+{% endblock %}

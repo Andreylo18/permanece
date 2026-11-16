@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}Definir contraseña{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-12 col-sm-9 col-md-6 col-lg-4">
+    <h1 class="h4 text-center mb-1">Define tu contraseña</h1>
+    <p class="text-center small text-muted mb-3">{{ usuario.nombre }} · {{ usuario.email }}</p>
+    <div class="card shadow-sm"><div class="card-body p-4">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="row g-3">
+          {{ campo(form.password, ayuda="Mínimo 8 caracteres.") }}
+          {{ campo(form.confirmar) }}
+          <div class="col-12 d-grid"><button class="btn btn-primary">Guardar contraseña</button></div>
+        </div>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

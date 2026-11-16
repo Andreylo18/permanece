@@ -75,7 +75,7 @@ a { color: var(--permanece); }
 .caja-periodo { background: var(--fondo); border-radius: 12px; padding: 14px; font-size: .85rem; }
 .barra-avance { height: 8px; background: #e2e5f0; border-radius: 99px; overflow: hidden; }
 .barra-avance > span { display: block; height: 100%; background: var(--permanece); border-radius: 99px; }
-.usuario { display: flex; align-items: center; gap: 10px; padding: 8px; border-top: 1px solid var(--borde); padding-top: 14px; }
+.usuario { display: flex; align-items: center; gap: 8px; padding: 8px; border-top: 1px solid var(--borde); padding-top: 14px; }
 .usuario .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--permanece-claro); color: var(--permanece);
   font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .usuario-datos { min-width: 0; flex: 1; font-size: .85rem; line-height: 1.25; }
@@ -165,3 +165,6 @@ html, body { overflow-x: hidden; }
   padding: 0 12px; font-size: .8rem; color: var(--texto-suave); margin: 0; }
 .filtro-pildora select { font: inherit; font-size: .875rem; border: 0; padding: 9px 0; background: transparent; color: var(--texto); max-width: 220px; }
 .filtro-pildora select:focus { outline: 2px solid #9aa3ea; outline-offset: 2px; border-radius: 4px; }
+.usuario-enlace { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; text-decoration: none; color: var(--texto);
+  border-radius: 10px; padding: 4px; margin: -4px; }
+.usuario-enlace:hover, .usuario-enlace.activo { background: var(--permanece-claro); }

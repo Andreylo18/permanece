@@ -65,11 +65,13 @@
         </div>
         {% endif %}
         <div class="usuario">
-          <span class="avatar" aria-hidden="true">{{ current_user.nombre[:1] }}</span>
-          <div class="usuario-datos">
-            <div class="fw-semibold text-truncate">{{ current_user.nombre }}</div>
-            <div class="small text-secondary text-truncate">{{ current_user.rol_nombre }}{% if current_user.institucion %} · {{ current_user.institucion.nombre }}{% endif %}</div>
-          </div>
+          <a class="usuario-enlace {{ 'activo' if request.endpoint == 'auth.perfil' }}" href="{{ url_for('auth.perfil') }}" title="Mi perfil y contraseña">
+            <span class="avatar" aria-hidden="true">{{ current_user.nombre[:1] }}</span>
+            <span class="usuario-datos">
+              <span class="d-block fw-semibold text-truncate">{{ current_user.nombre }}</span>
+              <span class="d-block small text-secondary text-truncate">Mi perfil · {{ current_user.rol_nombre }}</span>
+            </span>
+          </a>
           <form method="post" action="{{ url_for('auth.logout') }}" class="m-0">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-icono" title="Cerrar sesión" aria-label="Cerrar sesión"><i class="bi bi-box-arrow-right" aria-hidden="true"></i></button>

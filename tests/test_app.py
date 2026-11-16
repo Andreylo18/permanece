@@ -297,3 +297,26 @@ def test_demo_sin_ficticio_y_docente_por_cursos(app):
         assert validar(e.tipo_documento, e.documento, e.fecha_nacimiento) is None
     doc = db.session.execute(db.select(Usuario).filter(Usuario.email.like("docente.%"))).scalars().first()
     assert {a.grado for a in db.session.execute(db.select(Asignacion).filter_by(docente_id=doc.id)).scalars()} <= {6, 7, 8}
+
+
+def test_perfil_cambia_datos_y_contrasena(docente, client):
+    assert client.get("/perfil").status_code == 200
+    # contraseña actual incorrecta: no cambia nada
+    r = client.post("/perfil", data={"c-actual": "mala", "c-nueva": "NuevaClave1*", "c-confirmar": "NuevaClave1*",
+                                     "c-cambiar_clave": "1"})
+    assert "no es correcta" in r.get_data(as_text=True)
+    client.post("/perfil", data={"c-actual": "Clave2026*", "c-nueva": "NuevaClave1*", "c-confirmar": "NuevaClave1*",
+                                 "c-cambiar_clave": "1"})
+    u = db.session.execute(db.select(Usuario).filter_by(email="docente@t.co")).scalar_one()
+    assert u.check_password("NuevaClave1*") and not u.check_password("Clave2026*")
+    # correo ya usado por otro usuario
+    r = client.post("/perfil", data={"d-nombre": "Profe", "d-email": "admin@t.co", "d-password_actual": "NuevaClave1*",
+                                     "d-guardar_datos": "1"})
+    assert "ya lo usa otro" in r.get_data(as_text=True)
+    client.post("/perfil", data={"d-nombre": "Profe Nuevo", "d-email": "Profe@T.co", "d-password_actual": "NuevaClave1*",
+                                 "d-guardar_datos": "1"})
+    db.session.refresh(u)
+    assert u.nombre == "Profe Nuevo" and u.email == "profe@t.co"
+    logout(client)
+    login(client, "profe@t.co", "NuevaClave1*")
+    assert client.get("/perfil").status_code == 200

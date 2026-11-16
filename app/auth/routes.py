@@ -6,7 +6,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 
 from ..extensions import db
 from ..correo import correo_configurado, enviar_recuperacion, usuario_desde_token
-from ..forms import DefinirContrasenaForm, LoginForm, OlvideForm
+from ..forms import CambiarContrasenaForm, DefinirContrasenaForm, LoginForm, OlvideForm, PerfilForm
 from ..models import Usuario
 
 bp = Blueprint("auth", __name__)
@@ -87,3 +87,39 @@ def definir_contrasena(token):
         flash("Contraseña guardada. Ya puedes iniciar sesión.", "success")
         return redirect(url_for("auth.login"))
     return render_template("auth/definir.html", form=form, usuario=usuario)
+
+
+@bp.route("/perfil", methods=["GET", "POST"])
+@login_required
+def perfil():
+    """Mis datos y cambio de contraseña (cualquier rol)."""
+    # Cada formulario solo lee el POST si fue el que se envió (así el otro no se vacía)
+    enviado = request.form if request.method == "POST" else None
+    datos = PerfilForm(prefix="d", obj=current_user,
+                       formdata=enviado if enviado and "d-guardar_datos" in enviado else None)
+    clave = CambiarContrasenaForm(prefix="c", formdata=enviado if enviado and "c-cambiar_clave" in enviado else None)
+
+    if datos.guardar_datos.data and datos.validate_on_submit():
+        email = datos.email.data.strip().lower()
+        otro = db.session.execute(db.select(Usuario.id).filter(Usuario.email == email,
+                                                               Usuario.id != current_user.id)).first()
+        if not current_user.check_password(datos.password_actual.data):
+            datos.password_actual.errors.append("La contraseña actual no es correcta.")
+        elif otro:
+            datos.email.errors.append("Ese correo ya lo usa otro usuario.")
+        else:
+            current_user.nombre, current_user.email = datos.nombre.data.strip(), email
+            db.session.commit()
+            flash("Tus datos se guardaron.", "success")
+            return redirect(url_for("auth.perfil"))
+
+    elif clave.cambiar_clave.data and clave.validate_on_submit():
+        if not current_user.check_password(clave.actual.data):
+            clave.actual.errors.append("La contraseña actual no es correcta.")
+        else:
+            current_user.set_password(clave.nueva.data)   # invalida enlaces de invitación/recuperación pendientes
+            db.session.commit()
+            flash("Contraseña cambiada. Úsala la próxima vez que ingreses.", "success")
+            return redirect(url_for("auth.perfil"))
+
+    return render_template("auth/perfil.html", datos=datos, clave=clave)

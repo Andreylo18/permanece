@@ -35,6 +35,27 @@ class LoginForm(FlaskForm):
     submit = SubmitField("Ingresar")
 
 
+class PerfilForm(FlaskForm):
+    nombre = StringField("Nombre", validators=[DataRequired(REQ), Length(max=120)])
+    email = EmailField("Correo", validators=[DataRequired(REQ), Email("Correo no válido."), Length(max=160)],
+                       description="Es tu usuario para ingresar y donde te llegan los enlaces de recuperación.")
+    password_actual = PasswordField("Contraseña actual", validators=[DataRequired(REQ)],
+                                    description="Para confirmar que eres tú.")
+    guardar_datos = SubmitField("Guardar datos")
+
+
+class CambiarContrasenaForm(FlaskForm):
+    actual = PasswordField("Contraseña actual", validators=[DataRequired(REQ)])
+    nueva = PasswordField("Nueva contraseña", validators=[DataRequired(REQ), Length(min=8, message="Mínimo 8 caracteres.")])
+    confirmar = PasswordField("Confirmar nueva contraseña",
+                              validators=[DataRequired(REQ), EqualTo("nueva", "Las contraseñas no coinciden.")])
+    cambiar_clave = SubmitField("Cambiar contraseña")
+
+    def validate_nueva(self, field):
+        if field.data == self.actual.data:
+            raise ValidationError("La nueva contraseña debe ser distinta a la actual.")
+
+
 class OlvideForm(FlaskForm):
     email = EmailField("Correo", validators=[DataRequired(REQ), Email("Correo no válido.")])
     submit = SubmitField("Enviar enlace")

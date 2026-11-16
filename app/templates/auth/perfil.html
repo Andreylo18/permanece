@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campo %}
+{% block titulo %}Mi perfil{% endblock %}
+{% block contenido %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <span class="avatar-ini" style="width: 56px; height: 56px; font-size: 1.2rem" aria-hidden="true">{{ current_user.nombre[:1] }}</span>
+  <div>
+    <h1 class="h3 mb-0">Mi perfil</h1>
+    <p class="text-secondary mb-0">{{ current_user.rol_nombre }}{% if current_user.institucion %} · {{ current_user.institucion.nombre }}{% endif %}</p>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-6">
+    <section class="tarjeta h-100">
+      <h2 class="mb-3">Mis datos</h2>
+      <form method="post" novalidate>
+        {{ datos.hidden_tag() }}
+        <div class="row g-3">
+          {{ campo(datos.nombre) }}
+          {{ campo(datos.email) }}
+          {{ campo(datos.password_actual) }}
+          <div class="col-12 d-flex justify-content-end">{{ datos.guardar_datos(class="btn btn-primary") }}</div>
+        </div>
+      </form>
+    </section>
+  </div>
+  <div class="col-12 col-lg-6">
+    <section class="tarjeta h-100">
+      <h2 class="mb-1">Cambiar contraseña</h2>
+      <p class="small text-secondary mb-3">Al cambiarla, los enlaces de invitación o recuperación que tengas pendientes dejan de servir.</p>
+      <form method="post" novalidate autocomplete="off">
+        {{ clave.hidden_tag() }}
+        <div class="row g-3">
+          {{ campo(clave.actual) }}
+          {{ campo(clave.nueva, ayuda="Mínimo 8 caracteres. Mezcla letras, números y algún símbolo.") }}
+          {{ campo(clave.confirmar) }}
+          <div class="col-12 d-flex justify-content-end">{{ clave.cambiar_clave(class="btn btn-primary") }}</div>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

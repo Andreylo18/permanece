@@ -198,6 +198,8 @@ def test_dashboard_por_colegio(client, app):
         assert sum(sum(f.values()) for f in d["matriz"].values()) == 30
         assert sum(sum(f.values()) for f in d["por_colegio"].values()) == 30
         assert d["por_nivel"]["alto"] > 0
+        assert 0 < d["asistencia_promedio"] <= 100 and 0 < d["promedio_general"] <= 5
+        assert d["sin_intervencion"] >= len(d["prioritarios"]) and len(d["prioritarios"]) <= 5
         inst = db.session.execute(db.select(Institucion).filter_by(municipio="Chía", nombre="I.E.D. Ficticia San Gabriel")).scalar_one()
         assert calcular_indicadores({"institucion": str(inst.id)})["total"] == 10
         assert calcular_indicadores({"grado": "0"})["total"] == 0

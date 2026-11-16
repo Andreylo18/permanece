@@ -49,7 +49,22 @@ def create_app(nombre_config=None):
 
     @app.context_processor
     def utilidades_plantillas():
-        return {"nombre_grado": nombre_grado, "NIVELES": NIVELES}
+        return {"nombre_grado": nombre_grado, "NIVELES": NIVELES, "periodo_nav": _periodo_nav()}
+
+    def _periodo_nav():
+        """Periodo activo del colegio del usuario y su avance en semanas (para el menú)."""
+        from datetime import date
+        from flask_login import current_user
+        if not current_user.is_authenticated or not current_user.institucion_id:
+            return None
+        from .academico import periodo_activo
+        p = periodo_activo(current_user.institucion_id)
+        if p is None:
+            return None
+        total = max(1, -(-((p.fecha_fin - p.fecha_inicio).days + 1) // 7))
+        actual = min(total, max(1, (date.today() - p.fecha_inicio).days // 7 + 1))
+        return {"nombre": p.nombre, "semana": actual, "semanas": total,
+                "avance": round(actual * 100 / total)}
 
     from datetime import timezone
     from zoneinfo import ZoneInfo

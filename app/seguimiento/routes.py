@@ -6,7 +6,7 @@ from ..correo import enviar
 from ..extensions import db
 from ..forms import IntervencionForm
 from ..models import Estudiante, Intervencion
-from ..permisos import verificar_institucion
+from ..permisos import verificar_estudiante
 
 bp = Blueprint("seguimiento", __name__)
 
@@ -15,7 +15,7 @@ bp = Blueprint("seguimiento", __name__)
 @login_required
 def nueva(estudiante_id):
     est = db.session.get(Estudiante, estudiante_id) or abort(404)
-    verificar_institucion(est.institucion_id)
+    verificar_estudiante(est)
     form = IntervencionForm()
     if form.validate_on_submit():
         inter = Intervencion(estudiante=est, responsable_id=current_user.id, fecha=form.fecha.data,
@@ -40,7 +40,7 @@ def nueva(estudiante_id):
 @login_required
 def cambiar_estado(intervencion_id):
     inter = db.session.get(Intervencion, intervencion_id) or abort(404)
-    verificar_institucion(inter.estudiante.institucion_id)
+    verificar_estudiante(inter.estudiante)
     # Pueden cerrar/reabrir: el responsable, la coordinación del colegio o el administrador
     if not (current_user.es_admin or current_user.es_colegio or inter.responsable_id == current_user.id):
         abort(403)

@@ -1,7 +1,7 @@
 """Acceso, permisos por rol, aislamiento entre colegios, estudiantes, seguimiento e indicadores."""
 from app.dashboard.routes import calcular_indicadores
 from app.extensions import db
-from app.models import Asignacion, Estudiante, Institucion, Intervencion, Usuario
+from app.models import Asignacion, Estudiante, Institucion, Intervencion, Materia, Usuario
 
 from .conftest import ESTUDIANTE_OK, inst_id, login, logout
 
@@ -118,6 +118,31 @@ def test_admin_debe_elegir_colegio(admin):
     assert est.institucion.nombre == "Colegio B"
 
 
+def _asignar(email_docente, grado=9, grupo="A", materia="Matemáticas"):
+    doc = db.session.execute(db.select(Usuario).filter_by(email=email_docente)).scalar_one()
+    mat = Materia(institucion_id=doc.institucion_id, nombre=materia)
+    db.session.add(mat)
+    db.session.flush()
+    db.session.add(Asignacion(institucion_id=doc.institucion_id, materia_id=mat.id, docente_id=doc.id,
+                              grado=grado, grupo=grupo))
+    db.session.commit()
+
+
+def test_docente_solo_ve_estudiantes_de_sus_cursos(client):
+    login(client, "colegio.a@t.co")
+    mio = _crear(client)                                            # 9° A
+    otro = _crear(client, dict(ESTUDIANTE_OK, documento="1000999888", apellidos="Otro Curso", grado="7"))
+    logout(client)
+    _asignar("docente@t.co")                                        # dicta en 9° A
+    login(client, "docente@t.co")
+    listado = client.get("/estudiantes/").get_data(as_text=True)
+    assert "Prueba Uno" in listado and "Otro Curso" not in listado
+    assert client.get(f"/estudiantes/{mio.id}").status_code == 200
+    assert client.get(f"/estudiantes/{otro.id}").status_code == 404
+    assert client.get(f"/estudiantes/{otro.id}/intervenciones/nueva").status_code == 404
+    assert client.get(f"/estudiantes/{otro.id}/factores").status_code == 404
+
+
 def test_docente_no_ve_estudiantes_de_otro_colegio(client):
     login(client, "colegio.a@t.co")
     est = _crear(client)
@@ -126,9 +151,10 @@ def test_docente_no_ve_estudiantes_de_otro_colegio(client):
     assert client.get(f"/estudiantes/{est.id}").status_code == 404
     assert client.get(f"/estudiantes/{est.id}/factores").status_code == 404
     assert client.get(f"/estudiantes/{est.id}/intervenciones/nueva").status_code == 404
-    assert "Prueba Ficticia" not in client.get("/estudiantes/").get_data(as_text=True)
+    assert "Prueba Uno" not in client.get("/estudiantes/").get_data(as_text=True)
     logout(client)
-    login(client, "docente@t.co")  # mismo colegio: sí lo ve
+    _asignar("docente@t.co")
+    login(client, "docente@t.co")  # mismo colegio y dicta en su curso: sí lo ve
     assert client.get(f"/estudiantes/{est.id}").status_code == 200
 
 
@@ -177,6 +203,7 @@ def test_intervencion_conserva_autor_y_fecha(client):
     login(client, "colegio.a@t.co")
     est = _crear(client)
     logout(client)
+    _asignar("docente@t.co")
     login(client, "docente@t.co")
     client.post(f"/estudiantes/{est.id}/intervenciones/nueva", data={
         "fecha": "2026-11-01", "tipo": "tutoria", "estado": "abierta",
@@ -200,15 +227,16 @@ def test_dashboard_por_colegio(client, app):
         assert d["por_nivel"]["alto"] > 0
         assert 0 < d["asistencia_promedio"] <= 100 and 0 < d["promedio_general"] <= 5
         assert d["sin_intervencion"] >= len(d["prioritarios"]) and len(d["prioritarios"]) <= 5
-        inst = db.session.execute(db.select(Institucion).filter_by(municipio="Chía", nombre="I.E.D. Ficticia San Gabriel")).scalar_one()
+        inst = db.session.execute(db.select(Institucion).filter_by(municipio="Chía", nombre="Institución Educativa San Gabriel")).scalar_one()
         assert calcular_indicadores({"institucion": str(inst.id)})["total"] == 10
         assert calcular_indicadores({"grado": "0"})["total"] == 0
 
         # Un docente solo cuenta los de su colegio, aunque pida otro
         doc = db.session.execute(db.select(Usuario).filter_by(email="docente.sangabriel@permanece.example")).scalar_one()
         login_user(doc)
-        otro = db.session.execute(db.select(Institucion).filter_by(nombre="Colegio Ficticio La Sabana")).scalar_one()
-        assert calcular_indicadores({})["total"] == 10
+        otro = db.session.execute(db.select(Institucion).filter_by(nombre="Colegio La Sabana")).scalar_one()
+        propios = calcular_indicadores({})["total"]       # solo sus cursos (6° a 8°)
+        assert 0 < propios <= 10
         assert calcular_indicadores({"institucion": str(otro.id)})["total"] == 0
 
 
@@ -237,6 +265,35 @@ def test_paginas_principales_cargan(client, app):
         assert client.get(url).status_code == 200, url
     logout(client)
     login(client, asig.docente.email, "Docente2026*")
-    for url in ("/academico/mis-cursos", f"/academico/cursos/{asig.id}/notas",
-                f"/academico/cursos/{asig.id}/asistencia/tomar", f"/estudiantes/{est.id}"):
+    alumno = asig.estudiantes()[0]
+    for url in ("/dashboard", "/academico/mis-cursos", f"/academico/cursos/{asig.id}/notas",
+                f"/academico/cursos/{asig.id}/asistencia/tomar", f"/estudiantes/{alumno.id}"):
         assert client.get(url).status_code == 200, url
+
+
+def test_documento_colombiano(colegio):
+    from app.documentos import formatear, validar
+    from datetime import date
+    assert validar("TI", "1.012.345.678") is None
+    assert validar("TI", "12345") and validar("PEP", "123") and validar("XX", "123")
+    assert validar("CC", "1012345678", date(2012, 5, 1))          # menor de edad con cédula
+    assert validar("RC", "1012345678", date(2012, 5, 1))          # 14 años con registro civil
+    assert validar("TI", "1012345678", date(2012, 5, 1)) is None
+    assert formatear("TI", "1012345678") == "TI 1.012.345.678"
+    r = colegio.post("/estudiantes/nuevo", data=dict(ESTUDIANTE_OK, tipo_documento="CC", fecha_nacimiento="2012-05-01"))
+    assert "cédula" in r.get_data(as_text=True) and db.session.execute(db.select(Estudiante)).first() is None
+    colegio.post("/estudiantes/nuevo", data=dict(ESTUDIANTE_OK, tipo_documento="TI", documento="1.000.123.456"))
+    est = db.session.execute(db.select(Estudiante)).scalar_one()
+    assert est.documento == "1000123456" and est.tipo_documento == "TI"
+
+
+def test_demo_sin_ficticio_y_docente_por_cursos(app):
+    from app.cli import sembrar_datos
+    from app.documentos import validar
+    sembrar_datos(24)
+    nombres = [i.nombre for i in db.session.execute(db.select(Institucion)).scalars()]
+    assert not any("ficti" in n.lower() for n in nombres)
+    for e in db.session.execute(db.select(Estudiante)).scalars():
+        assert validar(e.tipo_documento, e.documento, e.fecha_nacimiento) is None
+    doc = db.session.execute(db.select(Usuario).filter(Usuario.email.like("docente.%"))).scalars().first()
+    assert {a.grado for a in db.session.execute(db.select(Asignacion).filter_by(docente_id=doc.id)).scalars()} <= {6, 7, 8}

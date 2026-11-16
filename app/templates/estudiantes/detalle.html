@@ -15,7 +15,7 @@
     <div class="flex-grow-1">
       <h1 class="h3 mb-1">{{ est.nombre_completo }}
         {% if not est.activo %}<span class="badge text-bg-secondary align-middle fs-6">Inactivo</span>{% endif %}</h1>
-      <div class="text-muted small">{{ est.grado_nombre }} · {{ est.institucion.nombre }} · {{ est.municipio }} · Doc. {{ est.documento }}</div>
+      <div class="text-muted small">{{ est.grado_nombre }} · {{ est.institucion.nombre }} · {{ est.municipio }} · {{ est.documento_formateado }}</div>
       <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
         {% if resultado %}{{ nivel_badge(resultado.nivel, resultado.puntaje) }}{% if resultado.datos_incompletos %} {{ incompleto_badge() }}{% endif %}
         {% else %}{{ nivel_badge(none) }}{% endif %}
@@ -219,7 +219,7 @@
       <div class="col-12 col-md-6">
         <h2 class="h6">Estudiante</h2>
         <dl class="row small mb-0">
-          <dt class="col-5">Documento</dt><dd class="col-7">{{ est.documento }}</dd>
+          <dt class="col-5">Documento</dt><dd class="col-7">{{ est.documento_formateado }}</dd>
           <dt class="col-5">Nacimiento</dt><dd class="col-7">{{ est.fecha_nacimiento.strftime('%d/%m/%Y') if est.fecha_nacimiento else '—' }}</dd>
           <dt class="col-5">Curso</dt><dd class="col-7">{{ est.grado_nombre }}</dd>
           <dt class="col-5">Colegio</dt><dd class="col-7">{{ est.institucion.nombre }} · {{ est.municipio }}</dd>

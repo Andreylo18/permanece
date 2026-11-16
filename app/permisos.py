@@ -42,3 +42,40 @@ def verificar_institucion(institucion_id):
     """404 si el registro pertenece a otro colegio."""
     if not current_user.es_admin and institucion_id != current_user.institucion_id:
         abort(404)
+
+
+# ---------------- Alcance del docente: solo los estudiantes de sus cursos ----------------
+
+def _filtro_cursos_docente(docente_id):
+    """Condición SQL: el estudiante está en un grado/grupo donde el docente dicta alguna materia."""
+    from sqlalchemy import exists, func
+
+    from .models import Asignacion, Estudiante
+    return exists().where(
+        Asignacion.docente_id == docente_id,
+        Asignacion.institucion_id == Estudiante.institucion_id,
+        Asignacion.grado == Estudiante.grado,
+        Asignacion.grupo == func.coalesce(Estudiante.grupo, ""),
+    )
+
+
+def limitar_estudiantes(consulta):
+    """Colegio del usuario y, si es docente, solo los cursos que tiene asignados."""
+    from .models import Estudiante
+    consulta = limitar_a_institucion(consulta, Estudiante.institucion_id)
+    if current_user.rol == "docente":
+        consulta = consulta.filter(_filtro_cursos_docente(current_user.id))
+    return consulta
+
+
+def verificar_estudiante(est):
+    """404 si el estudiante no es visible para el usuario actual."""
+    verificar_institucion(est.institucion_id)
+    if current_user.rol == "docente":
+        from .extensions import db
+        from .models import Asignacion
+        dicta = db.session.execute(db.select(Asignacion.id).filter_by(
+            docente_id=current_user.id, institucion_id=est.institucion_id,
+            grado=est.grado, grupo=est.grupo or "")).first()
+        if dicta is None:
+            abort(404)

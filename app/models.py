@@ -115,6 +115,7 @@ class Estudiante(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     institucion_id = db.Column(db.Integer, db.ForeignKey("instituciones.id"), nullable=False, index=True)
+    tipo_documento = db.Column(db.String(3), nullable=False, default="TI", server_default="TI")
     documento = db.Column(db.String(20), nullable=False, index=True)
     nombres = db.Column(db.Unicode(80), nullable=False)
     apellidos = db.Column(db.Unicode(80), nullable=False)
@@ -136,6 +137,11 @@ class Estudiante(db.Model):
 
     creado_por = db.relationship("Usuario", foreign_keys=[creado_por_id])
     institucion = db.relationship("Institucion", back_populates="estudiantes")
+
+    @property
+    def documento_formateado(self):
+        from .documentos import formatear
+        return formatear(self.tipo_documento, self.documento)
     registros = db.relationship(
         "RegistroFactores", back_populates="estudiante",
         order_by="desc(RegistroFactores.periodo)", cascade="all, delete-orphan")

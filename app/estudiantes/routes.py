@@ -7,7 +7,9 @@ from ..extensions import db
 from ..forms import EstudianteForm, FactoresForm
 from ..academico import periodo_activo, periodos_de, recalcular_estudiante, resumen_academico
 from ..models import GRADOS, MUNICIPIOS_SABANA_CENTRO, Estudiante, Institucion, Periodo
-from ..permisos import gestion_estudiantes_requerida, limitar_a_institucion, verificar_institucion
+from ..documentos import normalizar as normalizar_documento
+from ..permisos import (gestion_estudiantes_requerida, limitar_a_institucion, limitar_estudiantes,
+                        verificar_estudiante)
 from ..riesgo import calcular_riesgo
 
 bp = Blueprint("estudiantes", __name__)
@@ -17,7 +19,7 @@ def _get_estudiante(estudiante_id):
     est = db.session.get(Estudiante, estudiante_id)
     if est is None:
         abort(404)
-    verificar_institucion(est.institucion_id)  # otro colegio -> 404
+    verificar_estudiante(est)  # otro colegio, o curso que el docente no dicta -> 404
     return est
 
 
@@ -32,7 +34,7 @@ def instituciones_visibles(solo_activas=False):
 def consulta_filtrada(args):
     """Aplica los filtros comunes (listado y dashboard) — RF-11."""
     q = db.select(Estudiante).join(Estudiante.institucion)
-    q = limitar_a_institucion(q, Estudiante.institucion_id)   # alcance por colegio
+    q = limitar_estudiantes(q)   # colegio del usuario; docente: solo sus cursos
 
     colegio = args.get("institucion", "")
     if colegio.isdigit():
@@ -45,7 +47,7 @@ def consulta_filtrada(args):
     if texto:
         patron = f"%{texto}%"
         q = q.filter(or_(Estudiante.nombres.ilike(patron), Estudiante.apellidos.ilike(patron),
-                         Estudiante.documento.ilike(patron)))
+                         Estudiante.documento.ilike(f"%{normalizar_documento(texto)}%")))
 
     grado = args.get("grado", "")
     if grado.isdigit() and int(grado) in GRADOS:
@@ -121,7 +123,7 @@ def nuevo():
         flash("Primero debe existir al menos un colegio activo.", "warning")
         return redirect(url_for("instituciones.nueva") if current_user.es_admin else url_for("estudiantes.listado"))
     if form.validate_on_submit() and _colegio_valido(form):
-        documento = form.documento.data.strip().upper()
+        documento = normalizar_documento(form.documento.data)
         if _documento_duplicado(documento, form.institucion_id.data):
             form.documento.errors.append("Ya existe un estudiante con este documento en el colegio.")
         else:
@@ -147,7 +149,7 @@ def editar(estudiante_id):
     if current_user.es_admin and est.institucion_id not in {c[0] for c in form.institucion_id.choices}:
         form.institucion_id.choices.append((est.institucion_id, est.institucion.nombre))  # colegio inactivo
     if form.validate_on_submit() and _colegio_valido(form):
-        documento = form.documento.data.strip().upper()
+        documento = normalizar_documento(form.documento.data)
         if _documento_duplicado(documento, form.institucion_id.data, excluir_id=est.id):
             form.documento.errors.append("Ya existe otro estudiante con este documento en el colegio.")
         else:

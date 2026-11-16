@@ -66,6 +66,6 @@ def inst_id(nombre):
 
 
 ESTUDIANTE_OK = {
-    "documento": "1000123456", "nombres": "Laura", "apellidos": "Prueba Ficticia",
+    "tipo_documento": "TI", "documento": "1000123456", "nombres": "Laura", "apellidos": "Prueba Uno",
     "grado": "9", "grupo": "A",
 }

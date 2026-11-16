@@ -11,6 +11,8 @@ from wtforms import (BooleanField, DateField, DecimalField, EmailField,
 from wtforms.validators import (DataRequired, Email, EqualTo, Length,
                                 NumberRange, Optional, Regexp, ValidationError)
 
+from .documentos import OPCIONES_DOCUMENTO
+from .documentos import validar as validar_documento
 from .models import (GRADOS, MUNICIPIOS_SABANA_CENTRO, ROLES, SECTORES,
                      TIPOS_INTERVENCION, nombre_grado)
 from .riesgo import APOYO_OPCIONES
@@ -50,9 +52,9 @@ def _no_futura(form, field):
 
 
 class EstudianteForm(FlaskForm):
-    documento = StringField("Documento de identidad", validators=[
-        DataRequired(REQ), Length(min=5, max=20),
-        Regexp(r"^[0-9A-Za-z\-]+$", message="Solo números, letras y guiones.")])
+    tipo_documento = SelectField("Tipo de documento", choices=OPCIONES_DOCUMENTO, default="TI")
+    documento = StringField("Número de documento", validators=[DataRequired(REQ), Length(max=24)],
+                            description="Sin puntos ni espacios (se quitan solos).")
     nombres = StringField("Nombres", validators=[DataRequired(REQ), Length(max=80)])
     apellidos = StringField("Apellidos", validators=[DataRequired(REQ), Length(max=80)])
     fecha_nacimiento = DateField("Fecha de nacimiento", validators=[Optional(), _no_futura])
@@ -73,6 +75,12 @@ class EstudianteForm(FlaskForm):
     def validate_fecha_nacimiento(self, field):
         if field.data and (date.today().year - field.data.year) > 25:
             raise ValidationError("Revisa la fecha: el estudiante tendría más de 25 años.")
+
+    def validate_documento(self, field):
+        fecha = self.fecha_nacimiento.data if not self.fecha_nacimiento.errors else None
+        error = validar_documento(self.tipo_documento.data, field.data, fecha)
+        if error:
+            raise ValidationError(error)
 
 
 class FactoresForm(FlaskForm):

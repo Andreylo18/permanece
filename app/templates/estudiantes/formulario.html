@@ -14,10 +14,11 @@
   {{ form.hidden_tag() }}
   <h2 class="h6 text-uppercase text-muted">Identificación</h2>
   <div class="row g-3 mb-4">
+    {{ campo(form.tipo_documento, "col-12 col-md-5") }}
     {{ campo(form.documento, "col-12 col-md-4") }}
-    {{ campo(form.nombres, "col-12 col-md-4") }}
-    {{ campo(form.apellidos, "col-12 col-md-4") }}
-    {{ campo(form.fecha_nacimiento, "col-12 col-md-4") }}
+    {{ campo(form.fecha_nacimiento, "col-12 col-md-3") }}
+    {{ campo(form.nombres, "col-12 col-md-6") }}
+    {{ campo(form.apellidos, "col-12 col-md-6") }}
   </div>
   <h2 class="h6 text-uppercase text-muted">Información escolar</h2>
   <div class="row g-3 mb-4">
@@ -36,7 +37,7 @@
     {{ campo(form.telefono_acudiente, "col-12 col-md-6") }}
     {{ campo(form.email_acudiente, "col-12") }}
   </div>
-  <p class="small text-muted"><i class="bi bi-shield-lock me-1"></i>Registra solo la información necesaria para el seguimiento. En pruebas usa datos ficticios.</p>
+  <p class="small text-muted"><i class="bi bi-shield-lock me-1"></i>Registra solo la información necesaria para el seguimiento.</p>
   <div class="d-flex gap-2 justify-content-end">
     <a href="{{ url_for('estudiantes.detalle', estudiante_id=estudiante.id) if estudiante else url_for('estudiantes.listado') }}" class="btn btn-outline-secondary">Cancelar</a>
     <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Guardar</button>

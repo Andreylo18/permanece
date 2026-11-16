@@ -3,7 +3,7 @@
     flask --app run init-db          crea las tablas (y el admin inicial si se definen
                                      ADMIN_EMAIL y ADMIN_PASSWORD en el entorno)
     flask --app run crear-admin      crea un administrador (pide los datos)
-    flask --app run seed             carga datos FICTICIOS de prueba (RNF-02)
+    flask --app run seed             carga datos de demostración (RNF-02)
 """
 import os
 import random
@@ -12,7 +12,7 @@ from datetime import date, timedelta
 import click
 
 from .extensions import db
-from .models import (TIPOS_INTERVENCION, Actividad, Asignacion, Asistencia, Estudiante, Institucion,
+from .models import (Actividad, Asignacion, Asistencia, Estudiante, Institucion,
                      Intervencion, Materia, Nota, Periodo, RegistroFactores, SesionClase, Usuario)
 
 
@@ -21,6 +21,7 @@ def registrar_comandos(app):
     @app.cli.command("init-db")
     def init_db():
         db.create_all()
+        actualizar_esquema(avisar=click.echo)
         click.echo("Tablas listas.")
         email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
         clave = os.environ.get("ADMIN_PASSWORD", "")
@@ -49,20 +50,38 @@ def registrar_comandos(app):
         click.echo(f"Administrador {email} creado.")
 
     @app.cli.command("seed")
-    @click.option("--n", default=90, help="Número de estudiantes ficticios.")
+    @click.option("--n", default=90, help="Número de estudiantes de demostración.")
     @click.option("--reset", is_flag=True, help="Borra y recrea todas las tablas antes. ¡Elimina los datos!")
     def seed(n, reset):
         if reset:
             click.confirm("Esto BORRA todos los datos de la base configurada. ¿Continuar?", abort=True)
+            click.echo("1/4 Borrando tablas… (si se queda aquí, hay otra conexión usando la base: "
+                       "cierra otras terminales con flask abierto)")
             db.drop_all()
+        click.echo("2/4 Creando tablas…")
         db.create_all()
-        sembrar_datos(n)
-        click.echo(f"Datos ficticios cargados ({n} estudiantes, con notas y asistencia).")
+        actualizar_esquema(avisar=click.echo)
+        sembrar_datos(n, avisar=click.echo)
+        click.echo(f"Datos de demostración cargados ({n} estudiantes, con notas y asistencia).")
         click.echo("Usuarios demo (contraseña entre paréntesis):")
         click.echo("  Administrador general: admin@permanece.example (Admin2026*)")
         for slug, nombre, _ in COLEGIOS_DEMO:
-            click.echo(f"  {nombre}: colegio {slug}@permanece.example (Colegio2026*) · "
-                       f"docentes docente.{slug}@ y docente2.{slug}@permanece.example (Docente2026*)")
+            click.echo(f"  {nombre}: coordinación {slug}@permanece.example (Colegio2026*) · "
+                       f"docentes docente.{slug}@ … docente4.{slug}@permanece.example (Docente2026*)")
+
+
+def actualizar_esquema(avisar=lambda _: None):
+    """Agrega columnas nuevas a tablas que ya existen (create_all no altera tablas).
+
+    Hoy: estudiantes.tipo_documento. Los estudiantes que ya estaban quedan con 'TI'.
+    """
+    from sqlalchemy import inspect, text
+    columnas = {c["name"] for c in inspect(db.engine).get_columns("estudiantes")}
+    if "tipo_documento" not in columnas:
+        db.session.execute(text(
+            "ALTER TABLE estudiantes ADD COLUMN tipo_documento VARCHAR(3) DEFAULT 'TI' NOT NULL"))
+        db.session.commit()
+        avisar("Columna estudiantes.tipo_documento agregada (los existentes quedan como TI).")
 
 
 NOMBRES = ["Valentina", "Santiago", "Mariana", "Samuel", "Isabella", "Matías", "Sofía", "Emiliano",
@@ -75,11 +94,34 @@ MATERIAS_DEMO = ["Matemáticas", "Lengua Castellana", "Ciencias Naturales", "Cie
                  "Educación Física"]
 ACTIVIDADES_DEMO = [("Taller", 30), ("Quiz", 20), ("Examen", 50)]
 
-# (identificador, nombre, municipio) — colegios FICTICIOS
+# (tipo, descripción, compromisos) para el historial de seguimiento
+INTERVENCIONES_DEMO = [
+    ("reunion_acudiente", "Reunión con la acudiente para revisar inasistencias y bajo rendimiento del periodo.",
+     "La familia acompañará las tareas en casa y justificará las ausencias a tiempo."),
+    ("tutoria", "Tutoría de refuerzo en Matemáticas sobre los temas del examen pendiente.",
+     "Entregar el taller de recuperación el próximo viernes."),
+    ("orientacion", "Atención en orientación escolar por desmotivación y dificultades de convivencia.",
+     "Seguimiento quincenal con orientación."),
+    ("llamada", "Llamada al acudiente por tres ausencias seguidas sin excusa.",
+     "El acudiente enviará la excusa médica y el estudiante se pondrá al día."),
+    ("plan_mejora", "Se acordó un plan de mejoramiento en las materias reprobadas.",
+     "Revisar el avance con el director de grupo en dos semanas."),
+    ("remision", "Remisión a la EPS para valoración psicológica.",
+     "Orientación verifica la atención y retroalimenta al colegio."),
+]
+
+# (identificador, nombre, municipio) — colegios de demostración
 COLEGIOS_DEMO = [
-    ("sangabriel", "I.E.D. Ficticia San Gabriel", "Chía"),
-    ("lasabana", "Colegio Ficticio La Sabana", "Zipaquirá"),
-    ("elprado", "I.E.D. Ficticia El Prado", "Cajicá"),
+    ("sangabriel", "Institución Educativa San Gabriel", "Chía"),
+    ("lasabana", "Colegio La Sabana", "Zipaquirá"),
+    ("elprado", "Institución Educativa El Prado", "Cajicá"),
+]
+# Docentes por colegio: (correo, nombre, materias que dicta, grados)
+DOCENTES_DEMO = [
+    ("docente", "Carolina Rincón Pardo", ["Matemáticas", "Ciencias Naturales", "Inglés"], range(6, 9)),
+    ("docente2", "Jorge Iván Cárdenas", ["Lengua Castellana", "Ciencias Sociales", "Educación Física"], range(6, 9)),
+    ("docente3", "Paola Andrea Beltrán", ["Matemáticas", "Ciencias Naturales", "Inglés"], range(9, 12)),
+    ("docente4", "Hernán Darío Quintero", ["Lengua Castellana", "Ciencias Sociales", "Educación Física"], range(9, 12)),
 ]
 
 
@@ -106,8 +148,8 @@ def _dias_habiles(inicio, fin, cantidad, rnd):
     return sorted(rnd.sample(dias, min(cantidad, len(dias))))
 
 
-def sembrar_datos(n=90, semilla=2026):
-    """Colegios, docentes, materias, cursos, estudiantes, notas y asistencia ficticios.
+def sembrar_datos(n=90, semilla=2026, avisar=lambda _: None):
+    """Colegios, docentes, materias, cursos, estudiantes, notas y asistencia de demostración.
 
     Pensado para una base remota (Neon): arma todo en memoria y lo inserta por
     lotes, con pocos viajes a la base. El riesgo se calcula con las MISMAS reglas
@@ -125,8 +167,8 @@ def sembrar_datos(n=90, semilla=2026):
     for slug, nombre, municipio in COLEGIOS_DEMO:
         inst = _institucion(nombre, municipio)
         coord = _usuario(f"{slug}@permanece.example", f"Coordinación {nombre}", "colegio", "Colegio2026*", inst)
-        docs = [_usuario(f"docente.{slug}@permanece.example", "Docente Ciencias (demo)", "docente", "Docente2026*", inst),
-                _usuario(f"docente2.{slug}@permanece.example", "Docente Humanidades (demo)", "docente", "Docente2026*", inst)]
+        docs = [_usuario(f"{d}.{slug}@permanece.example", nombre_d, "docente", "Docente2026*", inst)
+                for d, nombre_d, _, _ in DOCENTES_DEMO]
         contexto.append([inst, coord, docs, None, None])
     db.session.flush()
 
@@ -150,19 +192,29 @@ def sembrar_datos(n=90, semilla=2026):
         c[3], c[4] = periodo, materias
     db.session.flush()
 
+    avisar("3/4 Generando estudiantes, notas y asistencia…")
     # ---- Estudiantes (un solo lote)
     base_doc = db.session.execute(db.select(db.func.count(Estudiante.id))).scalar()
     perfiles = {}
+    usados = set(db.session.execute(db.select(Estudiante.documento)).scalars())
+    nuips = [x for x in rnd.sample(range(1_000_000_000, 1_130_000_000), n + len(usados)) if str(x) not in usados][:n]
     for i in range(n):
         inst, coord, docs, periodo, materias = contexto[i % len(contexto)]
         apellido = rnd.choice(APELLIDOS)
+        grado = rnd.randint(6, 11)
+        # Edad típica: grado + 5 o 6 años (6° ≈ 11-12 años, 11° ≈ 16-17); algunos extraedad
+        anios = grado + rnd.choice([5, 5, 6, 6, 6, 7])
+        nacimiento = hoy - timedelta(days=anios * 365 + rnd.randint(30, 330))
+        # NUIP de 10 dígitos (Registraduría, nacidos desde ~2000): empieza por 10 o 11
+        nuip = str(nuips[i])
         est = Estudiante(
-            institucion_id=inst.id, documento=f"FIC{base_doc + i + 1:06d}",
+            institucion_id=inst.id, tipo_documento="CC" if anios >= 18 else "TI", documento=nuip,
+            fecha_nacimiento=nacimiento,
             nombres=rnd.choice(NOMBRES), apellidos=f"{apellido} {rnd.choice(APELLIDOS)}",
-            grado=rnd.randint(6, 11), grupo=rnd.choice(["A", "B"]),
+            grado=grado, grupo=rnd.choice(["A", "B"]),
             acudiente=f"{rnd.choice(NOMBRES)} {apellido}",
             telefono_acudiente=f"300{rnd.randint(1000000, 9999999)}",
-            email_acudiente=f"acudiente{base_doc + i + 1}@ejemplo.example" if rnd.random() < 0.7 else None,
+            email_acudiente=f"acudiente{base_doc + i + 1}@permanece.example" if rnd.random() < 0.7 else None,
             creado_por_id=coord.id,
         )
         db.session.add(est)
@@ -179,10 +231,12 @@ def sembrar_datos(n=90, semilla=2026):
         cursos = sorted({(e.grado, e.grupo) for e in perfiles if e.institucion_id == inst.id})
         for grado, grupo in cursos:
             alumnos = [e for e in perfiles if e.institucion_id == inst.id and e.grado == grado and e.grupo == grupo]
-            for k, mat in enumerate(materias):
+            for mat in materias:
                 asig = asignaciones.get((mat.id, grado, grupo))
                 if asig is None:
-                    asig = Asignacion(institucion_id=inst.id, materia_id=mat.id, docente_id=docs[k % 2].id,
+                    profe = next(doc for doc, (_, _, mats, grados) in zip(docs, DOCENTES_DEMO)
+                                 if mat.nombre in mats and grado in grados)
+                    asig = Asignacion(institucion_id=inst.id, materia_id=mat.id, docente_id=profe.id,
                                       grado=grado, grupo=grupo)
                     db.session.add(asig)
                     asignaciones[(mat.id, grado, grupo)] = asig
@@ -241,9 +295,8 @@ def sembrar_datos(n=90, semilla=2026):
                 db.session.add(Intervencion(
                     estudiante=e, responsable_id=docs[0].id,
                     fecha=hoy - timedelta(days=rnd.randint(1, 40)),
-                    tipo=rnd.choice(TIPOS_INTERVENCION)[0],
-                    descripcion="Intervención de prueba con datos ficticios para la demostración del MVP.",
-                    compromisos="Revisar avance en la próxima semana.",
+                    **dict(zip(("tipo", "descripcion", "compromisos"), rnd.choice(INTERVENCIONES_DEMO))),
                     estado="cerrada" if k else rnd.choice(["abierta", "cerrada"]),
                 ))
+    avisar("4/4 Guardando en la base de datos…")
     db.session.commit()

@@ -22,7 +22,7 @@
     {% endif %}
     <div class="col-12 col-md-4">
       <label class="form-label small mb-1" for="q">Buscar</label>
-      <input class="form-control" id="q" name="q" value="{{ request.args.q or '' }}" placeholder="Nombre o documento">
+      <input class="form-control" id="q" name="q" value="{{ request.args.q or '' }}" placeholder="Nombre o número de documento">
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label small mb-1" for="grado">Grado</label>
@@ -85,7 +85,7 @@
       <tr class="{{ 'text-muted' if not e.activo }}">
         <td><a href="{{ url_for('estudiantes.detalle', estudiante_id=e.id) }}" class="fw-semibold text-decoration-none">{{ e.apellidos }}, {{ e.nombres }}</a>
             {% if not e.activo %}<span class="badge text-bg-secondary ms-1">Inactivo</span>{% endif %}</td>
-        <td>{{ e.documento }}</td>
+        <td class="text-nowrap">{{ e.documento_formateado }}</td>
         <td>{{ e.grado_nombre }}</td>
         {% if current_user.es_admin %}<td class="small">{{ e.institucion.nombre }}</td>{% endif %}
         <td>{{ e.municipio }}</td>
@@ -101,7 +101,7 @@
   {% for e in pagina.items %}
   <a href="{{ url_for('estudiantes.detalle', estudiante_id=e.id) }}" class="card card-body text-decoration-none text-body py-2">
     <div class="fw-semibold">{{ e.apellidos }}, {{ e.nombres }}</div>
-    <div class="small text-muted">{{ e.grado_nombre }} · {{ e.municipio }} · {{ e.documento }}</div>
+    <div class="small text-muted">{{ e.grado_nombre }} · {{ e.municipio }} · {{ e.documento_formateado }}</div>
     {% if current_user.es_admin %}<div class="small text-muted">{{ e.institucion.nombre }}</div>{% endif %}
     <div class="mt-1">{{ nivel_badge(e.nivel_actual, e.puntaje_actual) }} {% if e.datos_incompletos and e.nivel_actual %}{{ incompleto_badge() }}{% endif %}</div>
   </a>
